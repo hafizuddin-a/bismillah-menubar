@@ -74,9 +74,10 @@ it sooner.
 
 ## Updates
 
-Bismillah looks for a newer version on this repository's [Releases](../../releases) page shortly after it
-starts, a couple of times a day while it runs, and after your Mac wakes. When there is one it downloads it,
-checks it, swaps the app in place and reopens quietly (no popup). It waits for the popup to finish first.
+Bismillah looks for a newer version on this repository's [Releases](../../releases) page about once a week:
+shortly after it starts, or after your Mac wakes, once a week has passed since the last check. When there is one
+it downloads it, checks it, swaps the app in place and reopens quietly (no popup). It waits for the popup to
+finish first.
 
 - **Check for Updates…** in the menu checks straight away.
 - Untick **Update Automatically** to stop the background checks. With it off, Bismillah makes no network

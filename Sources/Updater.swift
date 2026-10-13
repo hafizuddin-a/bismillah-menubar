@@ -42,7 +42,7 @@ final class Updater {
     static let repository = "hafizuddin-a/bismillah-menubar"
     static let automaticKey = "UpdateAutomatically"
     private static let lastCheckKey = "LastUpdateCheck"
-    private static let minimumGap: TimeInterval = 12 * 3600          // between automatic checks
+    private static let minimumGap: TimeInterval = 7 * 24 * 3600      // between automatic checks: once a week
     private static let recheckEvery: TimeInterval = 6 * 3600
 
     private let isPopupShowing: () -> Bool
@@ -71,7 +71,7 @@ final class Updater {
 
     // MARK: - automatic
 
-    /// First check shortly after launch, then every few hours while the app stays open.
+    /// Looks shortly after launch if a week has passed since the last check, and again later if the app stays open.
     func startAutomaticChecks() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in self?.checkIfDue() }
         timer = Timer.scheduledTimer(withTimeInterval: Self.recheckEvery, repeats: true) { [weak self] _ in
@@ -79,7 +79,7 @@ final class Updater {
         }
     }
 
-    /// Checks (and installs) only if automatic updates are on and the last check was long enough ago.
+    /// Checks (and installs) only if automatic updates are on and the last check was over a week ago.
     func checkIfDue() {
         guard automaticEnabled, !working else { return }
         if let last = UserDefaults.standard.object(forKey: Self.lastCheckKey) as? Date,
