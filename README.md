@@ -23,8 +23,11 @@ Bismillah is a small menu bar app for Mac. It shows a black popup in the middle 
 
 - Shows when you open the app and every time your Mac wakes, so it greets you when you open the lid. If the
   lid opens onto the lock screen it waits until you unlock.
-- A menu bar item that reads **بسم الله**, with Show Bismillah, Launch at Login, the update options and Quit. No Dock icon.
-- No account and nothing saved. Its only network access is the update check (see [Updates](#updates)).
+- Optional **dhikr reminders**: *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* slides out of the notch at random times through the day, as many
+  times a day as you choose.
+- A menu bar item that reads **بسم الله**, with Show Bismillah, Dhikr Reminders, Launch at Login, the update options and Quit.
+  No Dock icon.
+- No account, and it only remembers its own settings. Its only network access is the update check (see [Updates](#updates)).
 
 The letters are real font outlines revealed by a pen path that follows each letter's centreline: right to
 left, one word at a time, with the dots and vowel marks added last. With Reduce Motion turned on, it shows the
@@ -68,6 +71,7 @@ Click **بسم الله** in the menu bar:
 | Item            | What it does |
 |-----------------|--------------|
 | Show Bismillah  | Writes it out again |
+| Dhikr Reminders | Choose how many random dhikr popups a day (off by default), see when the next one is, or show one now |
 | Launch at Login | Starts Bismillah when you log in (tick to turn on) |
 | Update Automatically | Checks for new versions and installs them by itself (on by default) |
 | Check for Updates… | Checks right now and tells you what it found |
@@ -75,6 +79,21 @@ Click **بسم الله** in the menu bar:
 
 The popup fades away by itself a couple of seconds after it finishes writing. Click it or press Esc to dismiss
 it sooner.
+
+## Dhikr reminders
+
+Open **Dhikr Reminders** in the menu and pick how many a day: 1, 3, 5, 10, 15, 20 or 30. It is off until you choose.
+At random moments between 08:00 and 22:00, a black shape opens out of the notch (on a Mac without a notch it opens
+from the top centre of the screen), shows *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* for a few seconds, then folds back in.
+There is no writing animation here, just the text.
+
+- The times are random but spread over the day, at least a few minutes apart. **Next: …** in the submenu shows
+  when the next one is due, and **Show Now** shows one straight away.
+- Today's plan is saved, so quitting and reopening the app doesn't reshuffle it or repeat popups. If you change
+  the number mid-day, only the popups still to come are re-planned.
+- A popup that comes due while your Mac is asleep is skipped, not shown late. If the screen is locked or the
+  handwriting popup is showing, it waits a couple of minutes and tries again.
+- It never takes focus and never blocks clicks. With Reduce Motion on, it fades in and out instead of opening.
 
 ## Updates
 
@@ -97,6 +116,8 @@ finish first.
 
 - It can't appear above the lock screen. If your Mac locks while it sleeps, the popup waits and shows right
   after you unlock.
+- Dhikr popups come from the notch only on a Mac that has one, and only on its own screen. Elsewhere they open from
+  the top centre of the screen you are using.
 - Launch at Login is most reliable once the app is in your Applications folder.
 - It is not notarized, so macOS asks you to approve it the first time (see Install).
 
@@ -135,4 +156,4 @@ cp /tmp/out/BismillahData.swift Sources/
 With Homebrew: `brew uninstall --cask bismillah`.
 
 By hand: choose **Launch at Login** again to untick it if you ticked it, choose **Quit Bismillah**, then drag
-`Bismillah.app` to the Trash. Bismillah saves nothing else but its update settings.
+`Bismillah.app` to the Trash. Bismillah saves nothing else but its settings (the update and reminder choices).
