@@ -32,6 +32,10 @@ finished text without the writing.
 
 Requires macOS 14 or later (Apple Silicon and Intel).
 
+<p align="center">
+  <img src="assets/demo.gif" alt="The bismillah being written out in a black popup on a Mac desktop" width="800">
+</p>
+
 ## Install
 
 **With Homebrew:**
@@ -124,7 +128,7 @@ mkdir -p /tmp/out && /tmp/gen_strokes "Geeza Pro" /tmp/out
 cp /tmp/out/BismillahData.swift Sources/
 ```
 
-`tools/make_icon.sh` redraws the app icon.
+`tools/make_icon.sh` redraws the app icon, and `tools/make_demo_gif.sh` redraws the animation at the top of this page.
 
 ## Uninstall
 
