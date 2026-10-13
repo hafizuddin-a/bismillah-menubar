@@ -32,7 +32,16 @@ struct NotchGeometry {
 /// The black shape that opens out of the notch and holds the dhikr. `apply(progress:)` draws any moment of
 /// the animation, 0 = notch-sized, 1 = fully open, so the whole thing can also be rendered offscreen.
 final class NotchPopupView: NSView {
-    static let text = "سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ"
+    /// A dhikr to show, and how it is read aloud (for VoiceOver).
+    struct Dhikr {
+        let arabic: String
+        let reading: String
+    }
+    static let phrases = [
+        Dhikr(arabic: "سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ", reading: "Subhanallahi wa bihamdihi"),
+        Dhikr(arabic: "أَسْتَغْفِرُ ٱللَّهَ ٱلْعَظِيمَ", reading: "Astaghfirullah al-Azim"),
+        Dhikr(arabic: "ٱللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ", reading: "Allahumma salli ala Muhammad"),
+    ]
     static let openWidth: CGFloat = 370
     static let textAreaHeight: CGFloat = 70
     static let margin: CGFloat = 40                // room around the shape for its shadow
@@ -49,7 +58,7 @@ final class NotchPopupView: NSView {
     /// Called when the black shape is clicked.
     var onClick: (() -> Void)?
 
-    init(geometry: NotchGeometry) {
+    init(geometry: NotchGeometry, phrase: Dhikr = NotchPopupView.phrases[0]) {
         self.geometry = geometry
         super.init(frame: NSRect(origin: .zero, size: Self.size(for: geometry)))
         wantsLayer = true
@@ -63,12 +72,17 @@ final class NotchPopupView: NSView {
         shape.frame = bounds
         layer?.addSublayer(shape)
 
-        let font = NSFont(name: "GeezaPro", size: 30) ?? NSFont.systemFont(ofSize: 30)
         let style = NSMutableParagraphStyle()
         style.alignment = .center
-        let attributed = NSAttributedString(string: Self.text, attributes: [
-            .font: font, .foregroundColor: NSColor.white, .paragraphStyle: style])
-        label.string = attributed
+        func attributed(_ size: CGFloat) -> NSAttributedString {
+            NSAttributedString(string: phrase.arabic, attributes: [
+                .font: NSFont(name: "GeezaPro", size: size) ?? NSFont.systemFont(ofSize: size),
+                .foregroundColor: NSColor.white, .paragraphStyle: style])
+        }
+        // 30 pt, or smaller if a longer phrase wouldn't fit the open shape with some air around it
+        let fit = Self.openWidth - 56
+        let natural = attributed(30).size().width
+        label.string = attributed(natural > fit ? (30 * fit / natural).rounded(.down) : 30)
         label.alignmentMode = .center
         label.isWrapped = false
         label.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
@@ -134,10 +148,16 @@ final class NotchPopupController {
     private var link: CADisplayLink?
     private var startTime: CFTimeInterval = 0
     private var reduceMotion = false
+    private var lastPhrase: Int?
     private var lastProgress: CGFloat = 0
     private var closing: (start: CFTimeInterval, from: CGFloat)?       // set once the popup has been clicked
 
     var isShowing: Bool { panel?.isVisible ?? false }
+
+    /// A random phrase number out of `count`, never the same as `last`, so you never see one twice in a row.
+    nonisolated static func nextPhrase(after last: Int?, count: Int) -> Int {
+        (0..<count).filter { $0 != last }.randomElement() ?? 0
+    }
 
     /// 0 = closed, 1 = open, `t` seconds into the animation.
     nonisolated static func progress(at t: Double) -> CGFloat {
@@ -149,8 +169,11 @@ final class NotchPopupController {
 
     func show() {
         guard !isShowing else { return }
+        let index = Self.nextPhrase(after: lastPhrase, count: NotchPopupView.phrases.count)
+        lastPhrase = index
+        let phrase = NotchPopupView.phrases[index]
         let geometry = NotchGeometry.current()
-        let view = NotchPopupView(geometry: geometry)
+        let view = NotchPopupView(geometry: geometry, phrase: phrase)
         let size = view.frame.size
         let panel = NSPanel(contentRect: NSRect(x: geometry.centerX - size.width / 2,
                                                 y: geometry.screenFrame.maxY - size.height,
@@ -163,7 +186,7 @@ final class NotchPopupController {
         panel.backgroundColor = .clear
         panel.hasShadow = false                         // the shape draws its own
         panel.isReleasedWhenClosed = false              // clicks reach only the shape (see NotchPopupView.hitTest)
-        panel.setAccessibilityLabel("Subhanallahi wa bihamdihi")
+        panel.setAccessibilityLabel(phrase.reading)
         view.onClick = { [weak self] in self?.dismiss() }
         self.panel = panel
         self.view = view

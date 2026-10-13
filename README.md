@@ -23,8 +23,8 @@ Bismillah is a small menu bar app for Mac. It shows a black popup in the middle 
 
 - Shows when you open the app and every time your Mac wakes, so it greets you when you open the lid. If the
   lid opens onto the lock screen it waits until you unlock.
-- Optional **dhikr reminders**: *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* slides out of the notch at random times through the day, as many
-  times a day as you choose.
+- Optional **dhikr reminders**: *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ*, *أَسْتَغْفِرُ ٱللَّهَ ٱلْعَظِيمَ* or *ٱللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ* slides
+  out of the notch at random times through the day, as many times a day as you choose.
 - A menu bar item that reads **بسم الله**, with Show Bismillah, Dhikr Reminders, Launch at Login, the update options and Quit.
   No Dock icon.
 - No account, and it only remembers its own settings. Its only network access is the update check (see [Updates](#updates)).
@@ -84,8 +84,14 @@ it sooner.
 
 Open **Dhikr Reminders** in the menu and pick how many a day: 1, 3, 5, 10, 15, 20 or 30. It is off until you choose.
 At random moments, a black shape opens out of the notch (on a Mac without a notch it opens from the top centre of the
-screen), shows *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* for a few seconds, then folds back in. There is no writing animation
-here, just the text. Click it to dismiss it early.
+screen), shows one dhikr for a few seconds, then folds back in. There is no writing animation here, just the text.
+Click it to dismiss it early.
+
+- *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* (Subhanallahi wa bihamdihi)
+- *أَسْتَغْفِرُ ٱللَّهَ ٱلْعَظِيمَ* (Astaghfirullah al-Azim)
+- *ٱللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ* (Allahumma salli ala Muhammad)
+
+Each popup picks one at random, never the same one twice in a row.
 
 - **Starts at** and **Ends at** in the submenu set the hours the popups can appear in. The default is 08:00 to 22:00.
   The last option for the end, marked "end of day", runs through to midnight.
