@@ -1,12 +1,13 @@
 #!/bin/zsh
-# Regenerates assets/demo.gif for the README: the app's real popup renderer on a recreation of the
-# design prototype's desktop. Uses the same Sources files as the app, so it always shows the current animation.
+# Regenerates the README's two animations, assets/demo-wake.gif and assets/demo-dhikr.gif, with the app's real
+# renderers on a recreation of the design prototype's desktop. Uses the same Sources files as the app, so they
+# always show the current animation.
 set -euo pipefail
 cd "${0:A:h}/.."
 TMP="$(mktemp -d)"
 swiftc -O -framework AppKit -framework QuartzCore \
-  Sources/BismillahData.swift Sources/SVGPath.swift Sources/BismillahView.swift tools/demo_gif/main.swift \
+  Sources/BismillahData.swift Sources/SVGPath.swift Sources/BismillahView.swift Sources/NotchPopup.swift tools/demo_gif/main.swift \
   -o "$TMP/demo_gif"
-"$TMP/demo_gif" assets/demo.gif
+"$TMP/demo_gif" assets/demo-wake.gif assets/demo-dhikr.gif
 rm -rf "$TMP"
-ls -la assets/demo.gif
+ls -la assets/demo-wake.gif assets/demo-dhikr.gif
