@@ -44,6 +44,10 @@ final class NotchPopupView: NSView {
     private let geometry: NotchGeometry
     private let shape = CAShapeLayer()
     private let label = CATextLayer()
+    private var currentPath: CGPath?
+
+    /// Called when the black shape is clicked.
+    var onClick: (() -> Void)?
 
     init(geometry: NotchGeometry) {
         self.geometry = geometry
@@ -80,6 +84,14 @@ final class NotchPopupView: NSView {
 
     override var isFlipped: Bool { false }
 
+    // Only the black shape takes clicks, so the transparent margin around it never gets in the way.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let local = superview.map { convert(point, from: $0) } ?? point
+        return currentPath?.contains(local) == true ? self : nil
+    }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) { onClick?() }
+
     func apply(progress p: CGFloat) {
         let p = min(max(p, 0), 1)
         func lerp(_ a: CGFloat, _ b: CGFloat) -> CGFloat { a + (b - a) * p }
@@ -100,6 +112,7 @@ final class NotchPopupView: NSView {
         path.addArc(tangent1End: CGPoint(x: x0, y: bottom), tangent2End: CGPoint(x: x0, y: bottom + radius), radius: radius)
         path.closeSubpath()
 
+        currentPath = path
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         shape.path = path
@@ -114,12 +127,15 @@ final class NotchPopupView: NSView {
 @MainActor
 final class NotchPopupController {
     private nonisolated static let expand = 0.5, hold = 4.0, collapse = 0.4
+    private static let dismissTime = 0.3               // folding away after a click
 
     private var panel: NSPanel?
     private var view: NotchPopupView?
     private var link: CADisplayLink?
     private var startTime: CFTimeInterval = 0
     private var reduceMotion = false
+    private var lastProgress: CGFloat = 0
+    private var closing: (start: CFTimeInterval, from: CGFloat)?       // set once the popup has been clicked
 
     var isShowing: Bool { panel?.isVisible ?? false }
 
@@ -146,11 +162,13 @@ final class NotchPopupController {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false                         // the shape draws its own
-        panel.ignoresMouseEvents = true                 // never gets in the way of the menu bar
-        panel.isReleasedWhenClosed = false
+        panel.isReleasedWhenClosed = false              // clicks reach only the shape (see NotchPopupView.hitTest)
         panel.setAccessibilityLabel("Subhanallahi wa bihamdihi")
+        view.onClick = { [weak self] in self?.dismiss() }
         self.panel = panel
         self.view = view
+        closing = nil
+        lastProgress = 0
 
         reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         startTime = CACurrentMediaTime()
@@ -169,8 +187,29 @@ final class NotchPopupController {
         self.link = link
     }
 
+    /// A click on the popup: fold it away now instead of waiting out the hold.
+    func dismiss() {
+        guard isShowing, closing == nil else { return }
+        if reduceMotion {
+            closing = (CACurrentMediaTime(), 1)
+            NSAnimationContext.runAnimationGroup({ $0.duration = 0.2; panel?.animator().alphaValue = 0 },
+                                                 completionHandler: { [weak self] in Task { @MainActor in self?.finish() } })
+        } else {
+            closing = (CACurrentMediaTime(), lastProgress)
+        }
+    }
+
     @objc private func tick(_ link: CADisplayLink) {
-        let t = CACurrentMediaTime() - startTime
+        let now = CACurrentMediaTime()
+        if let closing {
+            if reduceMotion { return }                  // the fade-out in dismiss() finishes it
+            let u = (now - closing.start) / Self.dismissTime
+            if u >= 1 { finish(); return }
+            lastProgress = closing.from * CGFloat(1 - u * u * u)
+            view?.apply(progress: lastProgress)
+            return
+        }
+        let t = now - startTime
         let total = Self.expand + Self.hold + Self.collapse
         if reduceMotion {
             if t > Self.expand + Self.hold, let panel, panel.alphaValue == 1 {
@@ -179,7 +218,8 @@ final class NotchPopupController {
             if t > Self.expand + Self.hold + 0.3 { finish() }
             return
         }
-        view?.apply(progress: Self.progress(at: t))
+        lastProgress = Self.progress(at: t)
+        view?.apply(progress: lastProgress)
         if t >= total { finish() }
     }
 
@@ -189,5 +229,6 @@ final class NotchPopupController {
         panel?.orderOut(nil)
         panel = nil
         view = nil
+        closing = nil
     }
 }

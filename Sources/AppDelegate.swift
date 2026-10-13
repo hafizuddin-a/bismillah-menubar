@@ -14,6 +14,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var autoUpdateItem: NSMenuItem!
     private var dhikrCountItems: [NSMenuItem] = []
     private var dhikrNextItem: NSMenuItem!
+    private var startHourParent: NSMenuItem!
+    private var endHourParent: NSMenuItem!
+    private var startHourItems: [NSMenuItem] = []
+    private var endHourItems: [NSMenuItem] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -39,12 +43,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             dhikrCountItems.append(item)
         }
         dhikrMenu.addItem(.separator())
+        // the active hours: Starts at ▸ / Ends at ▸ (choices that would put the start after the end are greyed out)
+        let startMenu = NSMenu(), endMenu = NSMenu()
+        startMenu.autoenablesItems = false
+        endMenu.autoenablesItems = false
+        for hour in DhikrScheduler.startHourChoices {
+            let item = NSMenuItem(title: Self.hourLabel(hour), action: #selector(chooseStartHour(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = hour
+            startMenu.addItem(item)
+            startHourItems.append(item)
+        }
+        for hour in DhikrScheduler.endHourChoices {
+            let item = NSMenuItem(title: Self.hourLabel(hour), action: #selector(chooseEndHour(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = hour
+            endMenu.addItem(item)
+            endHourItems.append(item)
+        }
+        startHourParent = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        startHourParent.submenu = startMenu
+        dhikrMenu.addItem(startHourParent)
+        endHourParent = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        endHourParent.submenu = endMenu
+        dhikrMenu.addItem(endHourParent)
+        dhikrMenu.addItem(.separator())
         dhikrNextItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         dhikrNextItem.isEnabled = false
         dhikrMenu.addItem(dhikrNextItem)
         let showDhikr = NSMenuItem(title: "Show Now", action: #selector(showDhikrNow), keyEquivalent: "")
         showDhikr.target = self
         dhikrMenu.addItem(showDhikr)
+        dhikrMenu.autoenablesItems = false
         dhikrMenu.delegate = self
         let dhikrParent = NSMenuItem(title: "Dhikr Reminders", action: nil, keyEquivalent: "")
         dhikrParent.submenu = dhikrMenu
@@ -128,6 +158,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func chooseDhikrCount(_ sender: NSMenuItem) { dhikr.perDay = sender.tag }
+    @objc private func chooseStartHour(_ sender: NSMenuItem) { dhikr.startHour = sender.tag }
+    @objc private func chooseEndHour(_ sender: NSMenuItem) { dhikr.endHour = sender.tag }
+
+    /// "8:00 AM" or "08:00", following the Mac's own clock style. 24 is the end of the day.
+    private static func hourLabel(_ hour: Int) -> String {
+        let calendar = Calendar.current
+        let date = calendar.date(byAdding: .hour, value: hour % 24, to: calendar.startOfDay(for: Date())) ?? Date()
+        let text = date.formatted(date: .omitted, time: .shortened)
+        return hour == 24 ? "\(text) (end of day)" : text
+    }
 
     @objc private func showDhikrNow() { notchPopup.show() }
 
@@ -163,6 +203,16 @@ extension AppDelegate: NSMenuDelegate {
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
         autoUpdateItem.state = updater.automaticEnabled ? .on : .off
         for item in dhikrCountItems { item.state = item.tag == dhikr.perDay ? .on : .off }
+        startHourParent.title = "Starts at \(Self.hourLabel(dhikr.startHour))"
+        endHourParent.title = "Ends at \(Self.hourLabel(dhikr.endHour))"
+        for item in startHourItems {
+            item.state = item.tag == dhikr.startHour ? .on : .off
+            item.isEnabled = item.tag < dhikr.endHour
+        }
+        for item in endHourItems {
+            item.state = item.tag == dhikr.endHour ? .on : .off
+            item.isEnabled = item.tag > dhikr.startHour
+        }
         if let next = dhikr.nextPopup {
             let time = next.formatted(date: .omitted, time: .shortened)
             dhikrNextItem.title = Calendar.current.isDateInToday(next) ? "Next: \(time)" : "Next: tomorrow, \(time)"

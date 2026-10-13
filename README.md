@@ -71,7 +71,7 @@ Click **بسم الله** in the menu bar:
 | Item            | What it does |
 |-----------------|--------------|
 | Show Bismillah  | Writes it out again |
-| Dhikr Reminders | Choose how many random dhikr popups a day (off by default), see when the next one is, or show one now |
+| Dhikr Reminders | Choose how many random dhikr popups a day (off by default) and the hours they appear in, see when the next one is, or show one now |
 | Launch at Login | Starts Bismillah when you log in (tick to turn on) |
 | Update Automatically | Checks for new versions and installs them by itself (on by default) |
 | Check for Updates… | Checks right now and tells you what it found |
@@ -83,17 +83,20 @@ it sooner.
 ## Dhikr reminders
 
 Open **Dhikr Reminders** in the menu and pick how many a day: 1, 3, 5, 10, 15, 20 or 30. It is off until you choose.
-At random moments between 08:00 and 22:00, a black shape opens out of the notch (on a Mac without a notch it opens
-from the top centre of the screen), shows *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* for a few seconds, then folds back in.
-There is no writing animation here, just the text.
+At random moments, a black shape opens out of the notch (on a Mac without a notch it opens from the top centre of the
+screen), shows *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* for a few seconds, then folds back in. There is no writing animation
+here, just the text. Click it to dismiss it early.
 
-- The times are random but spread over the day, at least a few minutes apart. **Next: …** in the submenu shows
+- **Starts at** and **Ends at** in the submenu set the hours the popups can appear in. The default is 08:00 to 22:00.
+  The last option for the end, marked "end of day", runs through to midnight.
+- The times are random but spread over those hours, at least a few minutes apart. **Next: …** in the submenu shows
   when the next one is due, and **Show Now** shows one straight away.
-- Today's plan is saved, so quitting and reopening the app doesn't reshuffle it or repeat popups. If you change
-  the number mid-day, only the popups still to come are re-planned.
+- Today's plan is saved, so quitting and reopening the app doesn't reshuffle it or repeat popups. If you change the
+  number or the hours mid-day, only the popups still to come are re-planned.
 - A popup that comes due while your Mac is asleep is skipped, not shown late. If the screen is locked or the
   handwriting popup is showing, it waits a couple of minutes and tries again.
-- It never takes focus and never blocks clicks. With Reduce Motion on, it fades in and out instead of opening.
+- It never takes focus, and only the black shape reacts to clicks. With Reduce Motion on, it fades in and out
+  instead of opening.
 
 ## Updates
 
