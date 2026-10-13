@@ -43,6 +43,9 @@ final class PopupController {
     private var bismillah: BismillahView?
     private var hideWork: DispatchWorkItem?
 
+    /// True while the popup is on screen (including while it fades), so nothing restarts the app under it.
+    var isShowing: Bool { panel?.isVisible ?? false }
+
     func show() {
         hideWork?.cancel()
         let panel = self.panel ?? makePanel()

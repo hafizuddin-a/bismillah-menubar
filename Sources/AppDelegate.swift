@@ -1,10 +1,13 @@
 import AppKit
 import ServiceManagement
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let popup = PopupController()
+    private lazy var updater = Updater(isPopupShowing: { [weak self] in self?.popup.isShowing ?? false })
     private var loginItem: NSMenuItem!
+    private var autoUpdateItem: NSMenuItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -22,12 +25,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
         loginItem.target = self
         menu.addItem(loginItem)
+        autoUpdateItem = NSMenuItem(title: "Update Automatically", action: #selector(toggleAutomaticUpdates), keyEquivalent: "")
+        autoUpdateItem.target = self
+        menu.addItem(autoUpdateItem)
+        let check = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+        check.target = self
+        menu.addItem(check)
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        let versionItem = NSMenuItem(title: "Version \(version)", action: nil, keyEquivalent: "")
+        versionItem.isEnabled = false
+        menu.addItem(versionItem)
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Bismillah", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         menu.delegate = self
         statusItem.menu = menu
 
-        popup.show()                                  // greet on launch
+        // After an automatic update the app reopens itself quietly; every other launch greets you.
+        if !CommandLine.arguments.contains("--after-update") {
+            popup.show()
+        }
+        updater.startAutomaticChecks()
 
         // Greet again whenever the Mac wakes (lid opened, or the display woke up).
         let workspace = NSWorkspace.shared.notificationCenter
@@ -46,6 +63,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func macDidWake() {
         greetOnceUnlocked = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in self?.greetIfPossible() }
+        // the Mac may have slept past an update check
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in self?.updater.checkIfDue() }
     }
 
     @objc private func screenWasUnlocked() {
@@ -66,10 +85,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return (session?["CGSSessionScreenIsLocked"] as? NSNumber)?.boolValue ?? false
     }
 
+    // MARK: - menu actions
+
     @objc private func showBismillah() {
         lastGreeting = Date()
         popup.show()
     }
+
+    @objc private func toggleAutomaticUpdates() {
+        updater.automaticEnabled.toggle()
+        if updater.automaticEnabled { updater.checkIfDue() }
+    }
+
+    @objc private func checkForUpdates() { updater.checkManually() }
 
     @objc private func toggleLaunchAtLogin() {
         let service = SMAppService.mainApp
@@ -87,5 +115,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 extension AppDelegate: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        autoUpdateItem.state = updater.automaticEnabled ? .on : .off
     }
 }

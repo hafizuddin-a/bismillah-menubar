@@ -5,7 +5,8 @@
 set -e
 cd "$(dirname "$0")"
 APP=Bismillah.app
-VERSION=1.0.0
+VERSION=${VERSION:-1.0.1}      # override with VERSION=x.y.z ./build.sh
+UPDATE_KEY=$(tr -d '[:space:]' < tools/update-public-key.txt)
 FRAMEWORKS="-framework AppKit -framework QuartzCore -framework ServiceManagement"
 rm -rf "$APP" .build
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" .build
@@ -25,6 +26,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$VERSION</string>
+  <key>BismillahUpdateKey</key><string>$UPDATE_KEY</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>

@@ -1,4 +1,5 @@
 Bismillah.app/
 dist/
 .build/
+.build-tools/
 .DS_Store
