@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     })
     private lazy var dhikr = DhikrScheduler(show: { [weak self] in self?.showDhikrIfPossible() ?? false })
     private var loginItem: NSMenuItem!
+    private var allScreensItem: NSMenuItem!
     private var autoUpdateItem: NSMenuItem!
     private var dhikrCountItems: [NSMenuItem] = []
     private var dhikrNextItem: NSMenuItem!
@@ -84,6 +85,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
         loginItem.target = self
         menu.addItem(loginItem)
+        allScreensItem = NSMenuItem(title: "Show on All Screens", action: #selector(toggleAllScreens), keyEquivalent: "")
+        allScreensItem.target = self
+        menu.addItem(allScreensItem)
         autoUpdateItem = NSMenuItem(title: "Update Automatically", action: #selector(toggleAutomaticUpdates), keyEquivalent: "")
         autoUpdateItem.target = self
         menu.addItem(autoUpdateItem)
@@ -101,7 +105,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // After an automatic update the app reopens itself quietly; every other launch greets you.
         if !CommandLine.arguments.contains("--after-update") {
-            popup.show()
+            popup.show(allScreens: showOnAllScreens)
         }
         updater.startAutomaticChecks()
         dhikr.start()
@@ -138,7 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // wake and screensDidWake usually both fire; don't greet twice
         guard Date().timeIntervalSince(lastGreeting) > 5 else { return }
         lastGreeting = Date()
-        popup.show()
+        popup.show(allScreens: showOnAllScreens)
     }
 
     private static var screenIsLocked: Bool {
@@ -153,7 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if popup.isShowing || notchPopup.isShowing || Self.screenIsLocked || CGDisplayIsAsleep(CGMainDisplayID()) != 0 {
             return false
         }
-        notchPopup.show()
+        notchPopup.show(allScreens: showOnAllScreens)
         return true
     }
 
@@ -169,14 +173,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return hour == 24 ? "\(text) (end of day)" : text
     }
 
-    @objc private func showDhikrNow() { notchPopup.show() }
+    @objc private func showDhikrNow() { notchPopup.show(allScreens: showOnAllScreens) }
 
     // MARK: - menu actions
 
     @objc private func showBismillah() {
         lastGreeting = Date()
-        popup.show()
+        popup.show(allScreens: showOnAllScreens)
     }
+
+    /// Off by default: the bismillah appears on the screen you are using, the dhikr on the notched screen.
+    private var showOnAllScreens: Bool {
+        get { UserDefaults.standard.bool(forKey: "ShowOnAllScreens") }
+        set { UserDefaults.standard.set(newValue, forKey: "ShowOnAllScreens") }
+    }
+
+    @objc private func toggleAllScreens() { showOnAllScreens.toggle() }
 
     @objc private func toggleAutomaticUpdates() {
         updater.automaticEnabled.toggle()
@@ -201,6 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 extension AppDelegate: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        allScreensItem.state = showOnAllScreens ? .on : .off
         autoUpdateItem.state = updater.automaticEnabled ? .on : .off
         for item in dhikrCountItems { item.state = item.tag == dhikr.perDay ? .on : .off }
         startHourParent.title = "Starts at \(Self.hourLabel(dhikr.startHour))"

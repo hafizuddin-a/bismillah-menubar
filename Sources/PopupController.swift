@@ -33,38 +33,43 @@ private final class PopupContentView: NSView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-/// Owns the popup window: shows it centred on the screen, plays the animation, then fades it out.
+/// Owns the popup windows: shows the popup centred on one screen (or on every screen), plays the animation, then
+/// fades it out.
 final class PopupController {
     static let size = NSSize(width: 520, height: 180)
     private static let holdAfterWriting = 2.0
     private static let fade = 0.35
 
-    private var panel: PopupPanel?
-    private var bismillah: BismillahView?
+    /// One window per screen it has been shown on; they are reused between showings.
+    private var windows: [(panel: PopupPanel, view: BismillahView)] = []
     private var hideWork: DispatchWorkItem?
 
     /// True while the popup is on screen (including while it fades), so nothing restarts the app under it.
-    var isShowing: Bool { panel?.isVisible ?? false }
+    var isShowing: Bool { windows.contains { $0.panel.isVisible } }
 
-    func show() {
+    /// Shows the popup on the screen the mouse is on, or on every screen when `allScreens` is true.
+    func show(allScreens: Bool = false) {
         hideWork?.cancel()
-        let panel = self.panel ?? makePanel()
-        self.panel = panel
+        let screens = Self.targetScreens(allScreens: allScreens)
+        while windows.count < screens.count { windows.append(makeWindow()) }
+        for window in windows[screens.count...] { window.panel.orderOut(nil) }
 
-        panel.setFrame(frameOnCurrentScreen(), display: false)
-        panel.alphaValue = 0
-        panel.orderFrontRegardless()
-        panel.makeKey()
-        panel.invalidateShadow()
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = Self.fade
-            panel.animator().alphaValue = 1
-        }
-
-        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            bismillah?.showFinished()
-        } else {
-            bismillah?.play(after: Self.fade * 0.6)
+        for (index, screen) in screens.enumerated() {
+            let (panel, view) = windows[index]
+            panel.setFrame(Self.frame(centeredOn: screen), display: false)
+            panel.alphaValue = 0
+            panel.orderFrontRegardless()
+            if index == 0 { panel.makeKey() }            // so Esc reaches us
+            panel.invalidateShadow()
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = Self.fade
+                panel.animator().alphaValue = 1
+            }
+            if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+                view.showFinished()
+            } else {
+                view.play(after: Self.fade * 0.6)
+            }
         }
 
         let work = DispatchWorkItem { [weak self] in self?.hide() }
@@ -74,19 +79,20 @@ final class PopupController {
 
     func hide() {
         hideWork?.cancel()
-        guard let panel, panel.isVisible else { return }
+        let visible = windows.map(\.panel).filter(\.isVisible)
+        guard !visible.isEmpty else { return }
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = Self.fade
-            panel.animator().alphaValue = 0
-        }, completionHandler: { [weak panel] in
-            // A newer show() may have started during the fade; only hide if we are still faded out.
-            if let panel, panel.alphaValue == 0 { panel.orderOut(nil) }
+            for panel in visible { panel.animator().alphaValue = 0 }
+        }, completionHandler: {
+            // A newer show() may have started during the fade; only hide the windows that are still faded out.
+            for panel in visible where panel.alphaValue == 0 { panel.orderOut(nil) }
         })
     }
 
     // MARK: - building
 
-    private func makePanel() -> PopupPanel {
+    private func makeWindow() -> (panel: PopupPanel, view: BismillahView) {
         let panel = PopupPanel(contentRect: NSRect(origin: .zero, size: Self.size),
                                styleMask: [.borderless, .nonactivatingPanel],
                                backing: .buffered, defer: false)
@@ -107,15 +113,17 @@ final class PopupController {
         view.autoresizingMask = [.width, .height]
         content.addSubview(view)
         panel.contentView = content
-        bismillah = view
-        return panel
+        return (panel, view)
     }
 
-    private func frameOnCurrentScreen() -> NSRect {
+    private static func targetScreens(allScreens: Bool) -> [NSScreen] {
+        if allScreens && !NSScreen.screens.isEmpty { return NSScreen.screens }
         let mouse = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0]
+        return [NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0]]
+    }
+
+    private static func frame(centeredOn screen: NSScreen) -> NSRect {
         let f = screen.frame
-        return NSRect(x: f.midX - Self.size.width / 2, y: f.midY - Self.size.height / 2,
-                      width: Self.size.width, height: Self.size.height)
+        return NSRect(x: f.midX - size.width / 2, y: f.midY - size.height / 2, width: size.width, height: size.height)
     }
 }

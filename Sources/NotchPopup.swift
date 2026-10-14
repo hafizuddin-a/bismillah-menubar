@@ -10,8 +10,16 @@ struct NotchGeometry {
     let topInset: CGFloat          // how far down the open shape's text area starts: notch or menu bar height
     let hasNotch: Bool
 
+    /// The screen with a notch if there is one, otherwise the screen the mouse is on.
     static func current() -> NotchGeometry {
-        if let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) {
+        if let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) { return on(screen) }
+        let mouse = NSEvent.mouseLocation
+        return on(NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0])
+    }
+
+    /// The notch of this screen, or the stand-in tab if it has none.
+    static func on(_ screen: NSScreen) -> NotchGeometry {
+        if screen.safeAreaInsets.top > 0 {
             let left = screen.auxiliaryTopLeftArea ?? .zero
             let right = screen.auxiliaryTopRightArea ?? .zero
             let gap = screen.frame.width - left.width - right.width
@@ -21,8 +29,6 @@ struct NotchGeometry {
             return NotchGeometry(screenFrame: screen.frame, centerX: centerX, width: width, height: inset,
                                  topInset: inset, hasNotch: true)
         }
-        let mouse = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0]
         let menuBar = max(24, screen.frame.maxY - screen.visibleFrame.maxY)
         return NotchGeometry(screenFrame: screen.frame, centerX: screen.frame.midX, width: 120, height: 4,
                              topInset: menuBar, hasNotch: false)
@@ -143,8 +149,7 @@ final class NotchPopupController {
     private nonisolated static let expand = 0.5, hold = 4.0, collapse = 0.4
     private static let dismissTime = 0.3               // folding away after a click
 
-    private var panel: NSPanel?
-    private var view: NotchPopupView?
+    private var windows: [(panel: NSPanel, view: NotchPopupView)] = []
     private var link: CADisplayLink?
     private var startTime: CFTimeInterval = 0
     private var reduceMotion = false
@@ -152,7 +157,7 @@ final class NotchPopupController {
     private var lastProgress: CGFloat = 0
     private var closing: (start: CFTimeInterval, from: CGFloat)?       // set once the popup has been clicked
 
-    var isShowing: Bool { panel?.isVisible ?? false }
+    var isShowing: Bool { windows.contains { $0.panel.isVisible } }
 
     /// A random phrase number out of `count`, never the same as `last`, so you never see one twice in a row.
     nonisolated static func nextPhrase(after last: Int?, count: Int) -> Int {
@@ -167,45 +172,52 @@ final class NotchPopupController {
         return u >= 1 ? 0 : CGFloat(1 - u * u * u)
     }
 
-    func show() {
+    /// Shows one dhikr (the same on every screen): on the notched screen, or the screen the mouse is on, or on
+    /// every screen when `allScreens` is true.
+    func show(allScreens: Bool = false) {
         guard !isShowing else { return }
         let index = Self.nextPhrase(after: lastPhrase, count: NotchPopupView.phrases.count)
         lastPhrase = index
         let phrase = NotchPopupView.phrases[index]
-        let geometry = NotchGeometry.current()
-        let view = NotchPopupView(geometry: geometry, phrase: phrase)
-        let size = view.frame.size
-        let panel = NSPanel(contentRect: NSRect(x: geometry.centerX - size.width / 2,
-                                                y: geometry.screenFrame.maxY - size.height,
-                                                width: size.width, height: size.height),
-                            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.contentView = view
-        panel.level = .popUpMenu                        // above the menu bar
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = false                         // the shape draws its own
-        panel.isReleasedWhenClosed = false              // clicks reach only the shape (see NotchPopupView.hitTest)
-        panel.setAccessibilityLabel(phrase.reading)
-        view.onClick = { [weak self] in self?.dismiss() }
-        self.panel = panel
-        self.view = view
+        let geometries = allScreens && !NSScreen.screens.isEmpty ? NSScreen.screens.map(NotchGeometry.on) : [NotchGeometry.current()]
+
+        windows = geometries.map { geometry in
+            let view = NotchPopupView(geometry: geometry, phrase: phrase)
+            let size = view.frame.size
+            let panel = NSPanel(contentRect: NSRect(x: geometry.centerX - size.width / 2,
+                                                    y: geometry.screenFrame.maxY - size.height,
+                                                    width: size.width, height: size.height),
+                                styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+            panel.contentView = view
+            panel.level = .popUpMenu                        // above the menu bar
+            panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
+            panel.isOpaque = false
+            panel.backgroundColor = .clear
+            panel.hasShadow = false                         // the shape draws its own
+            panel.isReleasedWhenClosed = false              // clicks reach only the shape (see NotchPopupView.hitTest)
+            panel.setAccessibilityLabel(phrase.reading)
+            view.onClick = { [weak self] in self?.dismiss() }
+            return (panel, view)
+        }
         closing = nil
         lastProgress = 0
 
         reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         startTime = CACurrentMediaTime()
-        if reduceMotion {
-            view.apply(progress: 1)
-            panel.alphaValue = 0
-            panel.orderFrontRegardless()
-            NSAnimationContext.runAnimationGroup { $0.duration = 0.25; panel.animator().alphaValue = 1 }
-        } else {
-            view.apply(progress: 0)
-            panel.alphaValue = 1
-            panel.orderFrontRegardless()
+        for (panel, view) in windows {
+            if reduceMotion {
+                view.apply(progress: 1)
+                panel.alphaValue = 0
+                panel.orderFrontRegardless()
+                NSAnimationContext.runAnimationGroup { $0.duration = 0.25; panel.animator().alphaValue = 1 }
+            } else {
+                view.apply(progress: 0)
+                panel.alphaValue = 1
+                panel.orderFrontRegardless()
+            }
         }
-        let link = view.displayLink(target: self, selector: #selector(tick(_:)))
+        // one display link drives every screen's shape, so they open and close together
+        let link = windows[0].view.displayLink(target: self, selector: #selector(tick(_:)))
         link.add(to: .main, forMode: .common)
         self.link = link
     }
@@ -215,8 +227,10 @@ final class NotchPopupController {
         guard isShowing, closing == nil else { return }
         if reduceMotion {
             closing = (CACurrentMediaTime(), 1)
-            NSAnimationContext.runAnimationGroup({ $0.duration = 0.2; panel?.animator().alphaValue = 0 },
-                                                 completionHandler: { [weak self] in Task { @MainActor in self?.finish() } })
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = 0.2
+                for window in windows { window.panel.animator().alphaValue = 0 }
+            }, completionHandler: { [weak self] in Task { @MainActor in self?.finish() } })
         } else {
             closing = (CACurrentMediaTime(), lastProgress)
         }
@@ -229,29 +243,35 @@ final class NotchPopupController {
             let u = (now - closing.start) / Self.dismissTime
             if u >= 1 { finish(); return }
             lastProgress = closing.from * CGFloat(1 - u * u * u)
-            view?.apply(progress: lastProgress)
+            apply(lastProgress)
             return
         }
         let t = now - startTime
         let total = Self.expand + Self.hold + Self.collapse
         if reduceMotion {
-            if t > Self.expand + Self.hold, let panel, panel.alphaValue == 1 {
-                NSAnimationContext.runAnimationGroup { $0.duration = 0.25; panel.animator().alphaValue = 0 }
+            if t > Self.expand + Self.hold, windows.first?.panel.alphaValue == 1 {
+                NSAnimationContext.runAnimationGroup { ctx in
+                    ctx.duration = 0.25
+                    for window in windows { window.panel.animator().alphaValue = 0 }
+                }
             }
             if t > Self.expand + Self.hold + 0.3 { finish() }
             return
         }
         lastProgress = Self.progress(at: t)
-        view?.apply(progress: lastProgress)
+        apply(lastProgress)
         if t >= total { finish() }
+    }
+
+    private func apply(_ progress: CGFloat) {
+        for window in windows { window.view.apply(progress: progress) }
     }
 
     private func finish() {
         link?.invalidate()
         link = nil
-        panel?.orderOut(nil)
-        panel = nil
-        view = nil
+        for window in windows { window.panel.orderOut(nil) }
+        windows = []
         closing = nil
     }
 }

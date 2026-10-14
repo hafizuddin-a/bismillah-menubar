@@ -78,6 +78,7 @@ Click **بسم الله** in the menu bar:
 | Show Bismillah  | Writes it out again |
 | Dhikr Reminders | Choose how many random dhikr popups a day (off by default) and the hours they appear in, see when the next one is, or show one now |
 | Launch at Login | Starts Bismillah when you log in (tick to turn on) |
+| Show on All Screens | Shows the bismillah and the dhikr popups on every screen at once instead of just one (off by default) |
 | Update Automatically | Checks for new versions and installs them by itself (on by default) |
 | Check for Updates… | Checks right now and tells you what it found |
 | Quit Bismillah  | Quits the app |
@@ -130,8 +131,9 @@ finish first.
 
 - It can't appear above the lock screen. If your Mac locks while it sleeps, the popup waits and shows right
   after you unlock.
-- Dhikr popups come from the notch only on a Mac that has one, and only on its own screen. Elsewhere they open from
-  the top centre of the screen you are using.
+- Dhikr popups come from the notch only on a Mac that has one, and by default only on its own screen. Elsewhere they
+  open from the top centre of the screen you are using. With **Show on All Screens** ticked they appear on every screen,
+  opening from the notch on screens that have one and from the top centre on the rest.
 - Launch at Login is most reliable once the app is in your Applications folder.
 - It is not notarized, so macOS asks you to approve it the first time (see Install).
 
