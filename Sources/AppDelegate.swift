@@ -100,6 +100,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(versionItem)
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Bismillah", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        let signature = NSMenuItem(title: "Sincerely, @madebyhafiz", action: #selector(openInstagram), keyEquivalent: "")
+        signature.target = self
+        signature.image = NSImage(systemSymbolName: "face.smiling.inverse", accessibilityDescription: nil)    // lines up with Quit's icon
+        menu.addItem(signature)
         menu.delegate = self
         statusItem.menu = menu
 
@@ -196,6 +200,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func checkForUpdates() { updater.checkManually() }
+
+    @objc private func openInstagram() {
+        if let url = URL(string: "https://www.instagram.com/madebyhafiz/") { NSWorkspace.shared.open(url) }
+    }
 
     @objc private func toggleLaunchAtLogin() {
         let service = SMAppService.mainApp
