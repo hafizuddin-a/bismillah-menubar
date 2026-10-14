@@ -25,7 +25,7 @@ Bismillah is a small menu bar app for Mac. It shows a black popup in the middle 
   lid opens onto the lock screen it waits until you unlock.
 - Optional **dhikr reminders**: *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ*, *أَسْتَغْفِرُ ٱللَّهَ ٱلْعَظِيمَ* or *ٱللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ* slides
   out of the notch at random times through the day, as many times a day as you choose.
-- A menu bar item that reads **بسم الله**, with Show Bismillah, Dhikr Reminders, Launch at Login, the update options and Quit.
+- A menu bar item that reads **بسم الله**, with Show Bismillah, Dhikr Reminders, Launch at Login, Show on All Screens, the update options and Quit.
   No Dock icon.
 - No account, and it only remembers its own settings. Its only network access is the update check (see [Updates](#updates)).
 
