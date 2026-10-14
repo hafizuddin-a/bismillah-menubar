@@ -231,7 +231,7 @@ MainActor.assumeIsolated {
     func bismillahPopup(_ ctx: CGContext, tp: Double) {
         guard let image = writing.renderFrame(at: max(tp, 0) + BismillahView.leadIn) else { return }
         // the same envelope as the prototype: quick pop in, hold, fade out
-        let popIn = 0.164, fadeStart = 7.462, fadeEnd = 7.872
+        let popIn = 0.164, fadeStart = BismillahView.totalDuration + 1.862, fadeEnd = fadeStart + 0.41
         var opacity = 1.0, scale = 1.0
         if tp < popIn { let e = easeOut(tp / popIn); opacity = e; scale = 0.94 + 0.06 * e }
         else if tp > fadeStart { let e = easeOut((tp - fadeStart) / (fadeEnd - fadeStart)); opacity = 1 - e; scale = 1 - 0.015 * e }
@@ -260,9 +260,10 @@ MainActor.assumeIsolated {
     for veil in [0.75, 0.5, 0.3, 0.12] { wakeFrames.append(wake(nil, black: CGFloat(veil), 0.1)) }      // it lights up
     wakeFrames += [wake(nil, 0.5), wake(0.06, 0.06), wake(0.12, 0.06)]
     var t = 0.16
-    while t < 5.45 { wakeFrames.append(wake(t, 0.08)); t += 0.08 }                // the bismillah is written out
-    wakeFrames.append(wake(5.6, 1.4))                                             // held
-    wakeFrames += [wake(7.5, 0.1), wake(7.62, 0.1), wake(7.74, 0.1)]              // fades away
+    let written = BismillahView.totalDuration
+    while t < written - 0.15 { wakeFrames.append(wake(t, 0.07)); t += 0.07 }      // the bismillah is written out
+    wakeFrames.append(wake(written, 1.4))                                         // held
+    wakeFrames += [wake(written + 1.9, 0.1), wake(written + 2.02, 0.1), wake(written + 2.14, 0.1)]     // fades away
     write(wakeFrames, to: wakePath)
 
     // MARK: - GIF 2: the dhikr open out of the notch, one after another

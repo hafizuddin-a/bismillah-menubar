@@ -14,8 +14,11 @@ final class BismillahView: NSView {
     private static let fillStart = BismillahData.penEnd + 0.25
     private static let fillDuration = 0.45
 
+    /// How much faster than the recorded pen timings the writing is played.
+    static let speed = 1.25
+
     /// Total time from `play()` until the text is completely drawn.
-    static var totalDuration: Double { leadIn + fillStart + fillDuration }
+    static var totalDuration: Double { leadIn + (fillStart + fillDuration) / speed }
 
     private struct Pen {
         let points: [CGPoint]          // in the glyph's 1000-wide design space
@@ -112,7 +115,7 @@ final class BismillahView: NSView {
 
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
         let pw = Int(bounds.width * scale), ph = Int(bounds.height * scale)
-        let local = t - Self.leadIn
+        let local = (t - Self.leadIn) * Self.speed          // time in the recorded pen timings
 
         // 1. mask: alpha-only bitmap holding the pen strokes drawn so far
         guard let mask = CGContext(data: nil, width: pw, height: ph, bitsPerComponent: 8, bytesPerRow: pw,
