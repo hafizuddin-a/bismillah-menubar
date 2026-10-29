@@ -46,7 +46,7 @@ Requires macOS 14 or later (Apple Silicon and Intel).
 
 ## Install
 
-The first two options use **Terminal**, the app that comes with every Mac. Open it by pressing **⌘ Space**, typing
+The first two options use **Terminal**, the app that comes with every Mac. Open it by pressing Cmd+Space (**⌘** + **Space**), typing
 `Terminal` and pressing Return. Then paste a command below and press Return. If you'd rather not use Terminal, the
 last option works without it.
 
