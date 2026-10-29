@@ -46,6 +46,10 @@ Requires macOS 14 or later (Apple Silicon and Intel).
 
 ## Install
 
+The first two options use **Terminal**, the app that comes with every Mac. Open it by pressing **⌘ Space**, typing
+`Terminal` and pressing Return. Then paste a command below and press Return. If you'd rather not use Terminal, the
+last option works without it.
+
 **With Homebrew:**
 
 ```bash
@@ -55,7 +59,18 @@ brew install --cask hafizuddin-a/tap/bismillah
 Homebrew clears macOS's quarantine flag for this app (the cask is [in the tap](https://github.com/hafizuddin-a/homebrew-tap)
 if you want to read it), so it opens without the warning described below.
 
-**Or by hand:**
+**With curl** (comes with every Mac, no Homebrew needed). Paste this into Terminal:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hafizuddin-a/bismillah-menubar/main/get.sh | bash
+```
+
+This downloads the latest release from GitHub, checks it against its published checksum, puts `Bismillah.app` in
+your Applications folder and opens it. Files downloaded with curl aren't quarantined, so there is no macOS warning
+to click through. The script is [`get.sh`](get.sh), about 50 lines, if you'd like to read it first. Run it again
+any time to reinstall the latest version.
+
+**Or by hand** (no Terminal):
 
 1. Download `Bismillah-<version>.zip` from the [Releases](../../releases) page and unzip it.
 2. Drag `Bismillah.app` to your Applications folder.
@@ -125,7 +140,8 @@ finish first.
   replaced.
 - Updating in place needs Bismillah to sit somewhere it can write to, such as Applications. From a read-only
   place, such as straight out of a fresh download, it offers the release page instead.
-- With Homebrew, `brew upgrade` leaves it alone because it updates itself.
+- Updating never needs Homebrew or Terminal: however you installed it, the app updates itself from this repository's
+  releases. With Homebrew, `brew upgrade` leaves it alone because it updates itself.
 
 ## What it can't do
 
