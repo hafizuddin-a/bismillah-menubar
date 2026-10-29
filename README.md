@@ -50,15 +50,6 @@ The first two options use **Terminal**, the app that comes with every Mac. Open 
 `Terminal` and pressing Return. Then paste a command below and press Return. If you'd rather not use Terminal, the
 last option works without it.
 
-**With Homebrew:**
-
-```bash
-brew install --cask hafizuddin-a/tap/bismillah
-```
-
-Homebrew clears macOS's quarantine flag for this app (the cask is [in the tap](https://github.com/hafizuddin-a/homebrew-tap)
-if you want to read it), so it opens without the warning described below.
-
 **With curl** (comes with every Mac, no Homebrew needed). Paste this into Terminal:
 
 ```bash
@@ -69,6 +60,15 @@ This downloads the latest release from GitHub, checks it against its published c
 your Applications folder and opens it. Files downloaded with curl aren't quarantined, so there is no macOS warning
 to click through. The script is [`get.sh`](get.sh), about 50 lines, if you'd like to read it first. Run it again
 any time to reinstall the latest version.
+
+**With Homebrew:**
+
+```bash
+brew install --cask hafizuddin-a/tap/bismillah
+```
+
+Homebrew clears macOS's quarantine flag for this app (the cask is [in the tap](https://github.com/hafizuddin-a/homebrew-tap)
+if you want to read it), so it opens without the warning described below.
 
 **Or by hand** (no Terminal):
 
