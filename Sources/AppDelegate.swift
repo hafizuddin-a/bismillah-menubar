@@ -50,10 +50,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let styleParent = NSMenuItem(title: "Animation Mode", action: nil, keyEquivalent: "")
         styleParent.submenu = styleMenu
-        menu.addItem(styleParent)
         transliterationItem = NSMenuItem(title: "Show Transliteration", action: #selector(toggleTransliteration), keyEquivalent: "")
         transliterationItem.target = self
-        menu.addItem(transliterationItem)
 
         // Dhikr Reminders ▸ Off / 1 per day / 3 per day … / Next: … / Show Now
         let dhikrMenu = NSMenu()
@@ -84,15 +82,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             endMenu.addItem(item)
             endHourItems.append(item)
         }
+        skipShareItem = NSMenuItem(title: "Skip While Screen Sharing", action: #selector(toggleSkipWhileSharing), keyEquivalent: "")
+        skipShareItem.target = self
+        dhikrMenu.addItem(skipShareItem)
         startHourParent = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         startHourParent.submenu = startMenu
         dhikrMenu.addItem(startHourParent)
         endHourParent = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         endHourParent.submenu = endMenu
         dhikrMenu.addItem(endHourParent)
-        skipShareItem = NSMenuItem(title: "Skip While Screen Sharing", action: #selector(toggleSkipWhileSharing), keyEquivalent: "")
-        skipShareItem.target = self
-        dhikrMenu.addItem(skipShareItem)
         dhikrMenu.addItem(.separator())
         dhikrNextItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         dhikrNextItem.isEnabled = false
@@ -104,18 +102,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dhikrMenu.delegate = self
         let dhikrParent = NSMenuItem(title: "Dhikr Reminders", action: nil, keyEquivalent: "")
         dhikrParent.submenu = dhikrMenu
-        menu.addItem(dhikrParent)
         let counter = NSMenuItem(title: "Tasbih Counter", action: #selector(openTasbihCounter), keyEquivalent: "")
         counter.target = self
-        menu.addItem(counter)
 
-        menu.addItem(.separator())
         loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
         loginItem.target = self
-        menu.addItem(loginItem)
         allScreensItem = NSMenuItem(title: "Show on All Screens", action: #selector(toggleAllScreens), keyEquivalent: "")
         allScreensItem.target = self
-        menu.addItem(allScreensItem)
         // Global Shortcuts ▸ Enabled / the two shortcuts (shown greyed, for reference)
         let shortcutsMenu = NSMenu()
         shortcutsMenu.autoenablesItems = false
@@ -131,7 +124,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let shortcutsParent = NSMenuItem(title: "Global Shortcuts", action: nil, keyEquivalent: "")
         shortcutsParent.submenu = shortcutsMenu
+
+        // the order of the menu: what you use most first, then how it looks, then the housekeeping
+        menu.addItem(dhikrParent)
+        menu.addItem(counter)
+        menu.addItem(.separator())
+        menu.addItem(styleParent)
+        menu.addItem(transliterationItem)
+        menu.addItem(allScreensItem)
         menu.addItem(shortcutsParent)
+        menu.addItem(.separator())
+        menu.addItem(loginItem)
         autoUpdateItem = NSMenuItem(title: "Update Automatically", action: #selector(toggleAutomaticUpdates), keyEquivalent: "")
         autoUpdateItem.target = self
         menu.addItem(autoUpdateItem)
@@ -161,6 +164,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         tasbih.onChange = { [weak self] in self?.updateStatusTitle() }
         updateStatusTitle()
         applyGlobalShortcuts()
+        offerScreenRecordingAgainIfLost()
 
         // Greet again whenever the Mac wakes (lid opened, or the display woke up).
         let workspace = NSWorkspace.shared.notificationCenter
@@ -214,7 +218,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
-    @objc private func chooseDhikrCount(_ sender: NSMenuItem) { dhikr.perDay = sender.tag }
+    @objc private func chooseDhikrCount(_ sender: NSMenuItem) {
+        dhikr.perDay = sender.tag
+        // the first time reminders are turned on, recommend the permission that makes "skip while sharing" dependable
+        let key = "ScreenRecordingOffered"
+        if sender.tag > 0 && skipDhikrWhileSharing && !ScreenSharing.hasPermission && !UserDefaults.standard.bool(forKey: key) {
+            UserDefaults.standard.set(true, forKey: key)
+            DispatchQueue.main.async { [weak self] in self?.askForScreenRecording() }
+        }
+    }
     @objc private func chooseStartHour(_ sender: NSMenuItem) { dhikr.startHour = sender.tag }
     @objc private func chooseEndHour(_ sender: NSMenuItem) { dhikr.endHour = sender.tag }
 
@@ -276,7 +288,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         set { UserDefaults.standard.set(newValue, forKey: "SkipDhikrWhileSharing") }
     }
 
-    @objc private func toggleSkipWhileSharing() { skipDhikrWhileSharing.toggle() }
+    @objc private func toggleSkipWhileSharing() {
+        skipDhikrWhileSharing.toggle()
+        if skipDhikrWhileSharing && !ScreenSharing.hasPermission { askForScreenRecording() }       // turning it on: explain what it needs
+    }
+
+    /// Explains the Screen Recording permission before macOS asks for it. Optional: "Not Now" keeps the basic detection.
+    private func askForScreenRecording(afterUpdate: Bool = false) {
+        let alert = NSAlert()
+        alert.messageText = afterUpdate ? "Allow Screen Recording again?" : "Skip reminders while you share your screen?"
+        alert.informativeText = (afterUpdate ? "The update reset this permission, which can happen when Bismillah updates.\n\n" : "") + """
+            To notice when you're sharing, Bismillah needs the Screen Recording permission in macOS.
+
+            Bismillah doesn't record or look at your screen. macOS just uses that name for the permission that lets an app \
+            read window titles, and Bismillah only uses it to spot the "sharing" bar that Zoom, Meet or Teams show. \
+            Nothing leaves your Mac.
+
+            Without it, Bismillah can't reliably tell, so a reminder might still appear while you share. You can change \
+            this any time in System Settings > Privacy & Security.
+            """
+        alert.addButton(withTitle: "Continue")
+        alert.addButton(withTitle: "Not Now")
+        NSApp.activate()
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let asked = UserDefaults.standard.bool(forKey: "ScreenRecordingPromptShown")
+        UserDefaults.standard.set(true, forKey: "ScreenRecordingPromptShown")
+        if !asked {
+            ScreenSharing.requestPermission()                 // macOS's own prompt
+        } else {
+            NSWorkspace.shared.open(ScreenSharing.settingsURL)   // macOS only asks once; after that it is a switch in Settings
+        }
+    }
+
+    /// An update can reset the permission (Bismillah isn't signed with a Developer ID), so offer it again, once per version.
+    private func offerScreenRecordingAgainIfLost() {
+        let defaults = UserDefaults.standard
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        guard skipDhikrWhileSharing, !ScreenSharing.hasPermission, defaults.bool(forKey: "ScreenRecordingWasAllowed"),
+              defaults.string(forKey: "ScreenRecordingLostOfferedFor") != version else { return }
+        defaults.set(version, forKey: "ScreenRecordingLostOfferedFor")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.askForScreenRecording(afterUpdate: true) }
+    }
 
     private func updateStatusTitle() {
         let count = tasbih.count
@@ -345,12 +397,13 @@ extension AppDelegate: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
         allScreensItem.state = showOnAllScreens ? .on : .off
-        transliterationItem.state = showTransliteration ? .on : .off
-        skipShareItem.state = skipDhikrWhileSharing ? .on : .off
-        shortcutsItem.state = globalShortcutsOn ? .on : .off
         for item in styleItems { item.state = (item.representedObject as? String) == animationStyle.rawValue ? .on : .off }
+        transliterationItem.state = showTransliteration ? .on : .off
+        shortcutsItem.state = globalShortcutsOn ? .on : .off
         autoUpdateItem.state = updater.automaticEnabled ? .on : .off
         for item in dhikrCountItems { item.state = item.tag == dhikr.perDay ? .on : .off }
+        skipShareItem.state = skipDhikrWhileSharing ? .on : .off
+        if ScreenSharing.hasPermission { UserDefaults.standard.set(true, forKey: "ScreenRecordingWasAllowed") }
         startHourParent.title = "Starts at \(Self.hourLabel(dhikr.startHour))"
         endHourParent.title = "Ends at \(Self.hourLabel(dhikr.endHour))"
         for item in startHourItems {

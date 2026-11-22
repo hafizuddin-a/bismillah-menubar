@@ -95,13 +95,13 @@ Click **بسم الله** in the menu bar:
 | Item            | What it does |
 |-----------------|--------------|
 | Show Bismillah  | Shows it again |
-| Animation Mode  | **Fading** (the default) fades the bismillah in and out; **Writing** writes it out like handwriting |
-| Show Transliteration | Adds the reading in Latin letters under every popup and the counter (off by default) |
 | Dhikr Reminders | Choose how many random dhikr popups a day (off by default) and the hours they appear in, skip them while you share your screen, see when the next one is, or show one now |
 | Tasbih Counter  | Opens a small counter under the menu bar: press Space to count up to 100 |
-| Launch at Login | Starts Bismillah when you log in (tick to turn on) |
+| Animation Mode  | **Fading** (the default) fades the bismillah in and out; **Writing** writes it out like handwriting |
+| Show Transliteration | Adds the reading in Latin letters under every popup and the counter (off by default) |
 | Show on All Screens | Shows the bismillah and the dhikr popups on every screen at once instead of just one (off by default) |
 | Global Shortcuts | Turns the system-wide shortcuts on or off (on by default), see [Shortcuts and links](#shortcuts-and-links) |
+| Launch at Login | Starts Bismillah when you log in (tick to turn on) |
 | Update Automatically | Checks for new versions and installs them by itself (on by default) |
 | Check for Updates… | Checks right now and tells you what it found |
 | Quit Bismillah  | Quits the app |
@@ -160,11 +160,15 @@ Each popup picks one at random, never the same one twice in a row.
   The last option for the end, marked "end of day", runs through to midnight.
 - The times are random but spread over those hours, at least a few minutes apart. **Next: …** in the submenu shows
   when the next one is due, and **Show Now** shows one straight away.
-- **Skip While Screen Sharing** (on by default): a reminder that comes due while you are sharing your screen waits and
+- **Skip While Screen Sharing** (on by default): a reminder that comes due while you share your screen waits and
   tries again a couple of minutes later. Being in a meeting is fine, only sharing is skipped. macOS has no official way
-  to tell whether you are sharing, so Bismillah looks for the signs that sharing apps leave. That works for some apps and
-  not others, so treat it as a best effort. **Next:** in the submenu changes to "Paused while screen sharing" when it
-  notices.
+  to tell whether you are sharing, so Bismillah looks for the "sharing" bar that Zoom, Meet, Teams and similar apps show.
+  To read those, it asks, once and with an explanation, for the **Screen Recording** permission in macOS. Bismillah
+  doesn't record or look at your screen: macOS just uses that name for the permission that lets an app read window
+  titles, and nothing leaves your Mac. It is optional, but without it Bismillah can't reliably tell when you are sharing.
+  Turning it on in System Settings asks for an administrator's password, and since Bismillah isn't signed with an Apple
+  Developer ID, macOS may ask you to allow it again after an update. When it notices a share, **Next:** in the submenu
+  changes to "Paused while screen sharing".
 - Today's plan is saved, so quitting and reopening the app doesn't reshuffle it or repeat popups. If you change the
   number or the hours mid-day, only the popups still to come are re-planned.
 - A popup that comes due while your Mac is asleep is skipped, not shown late. If the screen is locked or the
@@ -212,7 +216,7 @@ finish first.
 ## What it can't do
 
 - It can't tell for sure when you are sharing your screen, because macOS doesn't say. **Skip While Screen Sharing**
-  is a best guess and may miss some apps.
+  reads the sharing bars of common apps (it works best with the Screen Recording permission) and may miss others.
 - It can't appear above the lock screen. If your Mac locks while it sleeps, the popup waits and shows right
   after you unlock.
 - Dhikr popups come from the notch only on a Mac that has one, and by default only on its own screen. Elsewhere they

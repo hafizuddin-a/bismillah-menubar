@@ -2,22 +2,32 @@ import AppKit
 import IOKit.pwr_mgt
 
 /// A best-effort guess at whether the screen is being shared or recorded right now. macOS has no public way to ask,
-/// so this looks for the telltale signs that apps leave: a power assertion that says so (video-call apps and
-/// recorders usually take one), or a sharing indicator window (its title is only readable when macOS lets this app
-/// see window titles). When it can't tell, it says no.
+/// so this looks for the telltale signs that apps leave: a sharing indicator window (Zoom's share bar, Meet's
+/// "is sharing your screen"), whose title macOS only reveals to an app with the Screen Recording permission, or a
+/// power assertion that says so. Without the permission it can see far less. When it can't tell, it says no.
 enum ScreenSharing {
-    static func isActive() -> Bool { assertionsMentionSharing() || windowsMentionSharing() }
+    static func isActive() -> Bool { windowsMentionSharing() || assertionsMentionSharing() }
+
+    /// Whether macOS lets this app read other apps' window titles (the Screen Recording permission). Bismillah never
+    /// captures the screen; this is only used to read the titles of sharing indicators.
+    static var hasPermission: Bool { CGPreflightScreenCaptureAccess() }
+
+    /// Shows macOS's own permission prompt the first time it is asked. Returns whether it is already allowed.
+    @discardableResult
+    static func requestPermission() -> Bool { CGRequestScreenCaptureAccess() }
+
+    static var settingsURL: URL { URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")! }
 
     private static let assertionPhrases = ["screen shar", "sharing your screen", "sharing screen", "sharing the screen",
                                            "screen captur", "screen record", "display captur", "desktop shar"]
     /// What a sharing indicator window says, in the apps that show one.
     private static let indicatorPhrases = ["is sharing your screen", "is sharing a window", "is sharing a tab", "is sharing this tab",
                                            "you are sharing", "you're sharing", "stop sharing", "stop share", "screen sharing",
-                                           "recording"]
+                                           "sharing control", "sharing toolbar", "share toolbar", "share statusbar", "recording"]
     /// Apps whose window titles are about the meeting or recording rather than a web page, so they're safe to match.
     private static let indicatorApps: Set<String> = ["zoom.us", "Microsoft Teams", "MSTeams", "Microsoft Teams (work or school)", "Slack",
                                                      "Discord", "FaceTime", "Webex", "QuickTime Player", "screencaptureui", "Screenshot",
-                                                     "OBS", "Loom", "Screen Sharing"]
+                                                     "OBS", "Loom", "Screen Sharing", "Control Centre", "Control Center"]
     /// Browsers show an indicator such as "meet.google.com is sharing your screen", but their window titles are also
     /// web page titles, so only the specific "is sharing" wording counts there.
     private static let browserPhrases = ["is sharing your screen", "is sharing a window", "is sharing a tab", "is sharing this tab"]
@@ -43,6 +53,8 @@ enum ScreenSharing {
             guard (window[kCGWindowOwnerPID as String] as? Int32) != me,
                   let owner = window[kCGWindowOwnerName as String] as? String,
                   let title = (window[kCGWindowName as String] as? String)?.lowercased(), !title.isEmpty else { continue }
+            if owner == "zoom.us", title.contains("share") { return true }                        // Zoom's share toolbar and status bar
+            if owner.contains("Teams"), title.contains("sharing") { return true }
             if indicatorApps.contains(owner), indicatorPhrases.contains(where: title.contains) { return true }
             if browserPhrases.contains(where: title.contains) { return true }
         }
