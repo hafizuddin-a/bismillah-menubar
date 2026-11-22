@@ -349,11 +349,11 @@ MainActor.assumeIsolated {
         ctx.setAlpha(e)
         ctx.beginTransparencyLayer(auxiliaryInfo: nil)
         let rect = CGRect(x: 0, y: -h, width: w, height: h)
-        let shape = CGPath(roundedRect: rect, cornerWidth: 18, cornerHeight: 18, transform: nil)
+        let shape = CGPath(roundedRect: rect, cornerWidth: 12, cornerHeight: 12, transform: nil)
         ctx.setShadow(offset: CGSize(width: 0, height: -10 * tasbihScene.scale), blur: 22 * tasbihScene.scale, color: color(0x000000, 0.28))
         ctx.addPath(shape); ctx.setFillColor(color(0xf6f6f8, 0.72)); ctx.fillPath()          // glass: the wallpaper shows through
         ctx.setShadow(offset: .zero, blur: 0)
-        ctx.addPath(CGPath(roundedRect: rect.insetBy(dx: 0.25, dy: 0.25), cornerWidth: 17.75, cornerHeight: 17.75, transform: nil))
+        ctx.addPath(CGPath(roundedRect: rect.insetBy(dx: 0.25, dy: 0.25), cornerWidth: 11.75, cornerHeight: 11.75, transform: nil))
         ctx.setStrokeColor(color(0x000000, 0.14)); ctx.setLineWidth(0.5); ctx.strokePath()
         ctx.translateBy(x: 0, y: -h)                                // now bottom-left, y up, like the app's layout
 

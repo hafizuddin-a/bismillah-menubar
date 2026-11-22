@@ -10,7 +10,7 @@ final class TasbihCounter {
     private static let countKey = "TasbihCount"
     private static let phrase = "سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ"
     private static let size = NSSize(width: 272, height: 84)
-    private static let cornerRadius: CGFloat = 18
+    private static let cornerRadius: CGFloat = 12
 
     private var panel: CounterPanel?
     private let ringView = RingView(frame: NSRect(x: 0, y: 0, width: 58, height: 58))
@@ -174,28 +174,23 @@ final class TasbihCounter {
             closeButton.heightAnchor.constraint(equalToConstant: 16),
         ])
 
-        // the same glass as the menu next to it (macOS 26), or the menu material before that
-        if #available(macOS 26.0, *) {
-            let glass = NSGlassEffectView()
-            glass.cornerRadius = Self.cornerRadius
-            glass.contentView = content
-            panel.contentView = glass
-        } else {
-            let menuLook = NSVisualEffectView()
-            menuLook.material = .menu
-            menuLook.blendingMode = .behindWindow
-            menuLook.state = .active
-            menuLook.wantsLayer = true
-            menuLook.layer?.cornerRadius = Self.cornerRadius
-            menuLook.layer?.cornerCurve = .continuous
-            menuLook.layer?.masksToBounds = true
-            menuLook.addSubview(content)
-            NSLayoutConstraint.activate([
-                content.leadingAnchor.constraint(equalTo: menuLook.leadingAnchor), content.trailingAnchor.constraint(equalTo: menuLook.trailingAnchor),
-                content.topAnchor.constraint(equalTo: menuLook.topAnchor), content.bottomAnchor.constraint(equalTo: menuLook.bottomAnchor),
-            ])
-            panel.contentView = menuLook
-        }
+        // exactly what the menu next to it is made of: probing a real NSMenu's window shows a behind-window
+        // NSVisualEffectView with the system's menu material (raw value 36), emphasized, and a 12 pt corner radius
+        let menuLook = NSVisualEffectView()
+        menuLook.material = NSVisualEffectView.Material(rawValue: 36) ?? .menu
+        menuLook.blendingMode = .behindWindow
+        menuLook.state = .active
+        menuLook.isEmphasized = true
+        menuLook.wantsLayer = true
+        menuLook.layer?.cornerRadius = Self.cornerRadius
+        menuLook.layer?.cornerCurve = .continuous
+        menuLook.layer?.masksToBounds = true
+        menuLook.addSubview(content)
+        NSLayoutConstraint.activate([
+            content.leadingAnchor.constraint(equalTo: menuLook.leadingAnchor), content.trailingAnchor.constraint(equalTo: menuLook.trailingAnchor),
+            content.topAnchor.constraint(equalTo: menuLook.topAnchor), content.bottomAnchor.constraint(equalTo: menuLook.bottomAnchor),
+        ])
+        panel.contentView = menuLook
         panel.setContentSize(Self.size)
         return panel
     }
