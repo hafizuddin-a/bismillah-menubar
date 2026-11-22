@@ -174,23 +174,29 @@ final class TasbihCounter {
             closeButton.heightAnchor.constraint(equalToConstant: 16),
         ])
 
-        // exactly what the menu next to it is made of: probing a real NSMenu's window shows a behind-window
-        // NSVisualEffectView with the system's menu material (raw value 36), emphasized, and a 12 pt corner radius
-        let menuLook = NSVisualEffectView()
-        menuLook.material = NSVisualEffectView.Material(rawValue: 36) ?? .menu
-        menuLook.blendingMode = .behindWindow
-        menuLook.state = .active
-        menuLook.isEmphasized = true
-        menuLook.wantsLayer = true
-        menuLook.layer?.cornerRadius = Self.cornerRadius
-        menuLook.layer?.cornerCurve = .continuous
-        menuLook.layer?.masksToBounds = true
-        menuLook.addSubview(content)
-        NSLayoutConstraint.activate([
-            content.leadingAnchor.constraint(equalTo: menuLook.leadingAnchor), content.trailingAnchor.constraint(equalTo: menuLook.trailingAnchor),
-            content.topAnchor.constraint(equalTo: menuLook.topAnchor), content.bottomAnchor.constraint(equalTo: menuLook.bottomAnchor),
-        ])
-        panel.contentView = menuLook
+        // glass on macOS 26 and later (what the menu next to it is drawn with), the menu material before that;
+        // 12 pt is the corner radius of a real menu's window
+        if #available(macOS 26.0, *) {
+            let glass = NSGlassEffectView()
+            glass.cornerRadius = Self.cornerRadius
+            glass.contentView = content
+            panel.contentView = glass
+        } else {
+            let menuLook = NSVisualEffectView()
+            menuLook.material = .menu
+            menuLook.blendingMode = .behindWindow
+            menuLook.state = .active
+            menuLook.wantsLayer = true
+            menuLook.layer?.cornerRadius = Self.cornerRadius
+            menuLook.layer?.cornerCurve = .continuous
+            menuLook.layer?.masksToBounds = true
+            menuLook.addSubview(content)
+            NSLayoutConstraint.activate([
+                content.leadingAnchor.constraint(equalTo: menuLook.leadingAnchor), content.trailingAnchor.constraint(equalTo: menuLook.trailingAnchor),
+                content.topAnchor.constraint(equalTo: menuLook.topAnchor), content.bottomAnchor.constraint(equalTo: menuLook.bottomAnchor),
+            ])
+            panel.contentView = menuLook
+        }
         panel.setContentSize(Self.size)
         return panel
     }
