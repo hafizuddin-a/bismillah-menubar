@@ -48,7 +48,7 @@ final class PopupController {
     var isShowing: Bool { windows.contains { $0.panel.isVisible } }
 
     /// Shows the popup on the screen the mouse is on, or on every screen when `allScreens` is true.
-    func show(allScreens: Bool = false) {
+    func show(allScreens: Bool = false, style: BismillahView.Style = .writing) {
         hideWork?.cancel()
         let screens = Self.targetScreens(allScreens: allScreens)
         while windows.count < screens.count { windows.append(makeWindow()) }
@@ -65,10 +65,14 @@ final class PopupController {
                 ctx.duration = Self.fade
                 panel.animator().alphaValue = 1
             }
+            let delay = Self.fade * 0.6
             if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
                 view.showFinished()
+            } else if style == .fading {
+                // on screen as long as the writing style is: fade in, pause, fade out, then the panel itself fades
+                view.play(style: .fading, after: delay, visibleFor: BismillahView.totalDuration + Self.holdAfterWriting - delay)
             } else {
-                view.play(after: Self.fade * 0.6)
+                view.play(after: delay)
             }
         }
 

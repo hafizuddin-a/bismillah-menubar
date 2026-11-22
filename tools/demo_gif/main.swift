@@ -1,8 +1,11 @@
-// Draws the README's two animations with the app's real renderers, composited onto a recreation of the
+// Draws the README's animations with the app's real renderers, composited onto a recreation of the
 // design prototype's desktop. Run it through tools/make_demo_gif.sh.
 //
-//   demo-wake.gif   the screen lights up, then the bismillah is written out (BismillahView)
-//   demo-dhikr.gif  the three dhikr open out of the notch, one after another (NotchPopupView)
+//   demo-wake.gif    the screen lights up, then the bismillah is written out (BismillahView, writing mode)
+//   demo-dhikr.gif   the three dhikr open out of the notch, one after another (NotchPopupView)
+//   demo-fade.gif    the same wake, with the bismillah fading in and out (BismillahView, fading mode)
+//   demo-tasbih.gif  the tasbih counter dropping from the menu bar and counting to 100 (drawn here, to match
+//                    TasbihCounter.swift, because its menu material can't be rendered offscreen)
 import AppKit
 import CoreText
 import ImageIO
@@ -11,6 +14,8 @@ import UniformTypeIdentifiers
 _ = NSApplication.shared
 let wakePath = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "demo-wake.gif"
 let dhikrPath = CommandLine.arguments.count > 2 ? CommandLine.arguments[2] : "demo-dhikr.gif"
+let fadePath = CommandLine.arguments.count > 3 ? CommandLine.arguments[3] : "demo-fade.gif"
+let tasbihPath = CommandLine.arguments.count > 4 ? CommandLine.arguments[4] : "demo-tasbih.gif"
 
 // The prototype's desktop is 1440 x 900 (design space). Each GIF shows a crop of it at 800 x 500.
 let designW: CGFloat = 1440, designH: CGFloat = 900
@@ -33,6 +38,7 @@ struct Scene {
 }
 let wakeScene = Scene(crop: CGRect(x: 320, y: 190, width: 800, height: 500), notch: false)
 let dhikrScene = Scene(crop: CGRect(x: 480, y: 0, width: 480, height: 300), notch: true)
+let tasbihScene = Scene(crop: CGRect(x: 960, y: 0, width: 480, height: 300), notch: false)
 
 func color(_ hex: UInt32, _ alpha: CGFloat = 1) -> CGColor {
     CGColor(red: CGFloat((hex >> 16) & 255) / 255, green: CGFloat((hex >> 8) & 255) / 255, blue: CGFloat(hex & 255) / 255, alpha: alpha)
@@ -228,10 +234,11 @@ MainActor.assumeIsolated {
     let wakeBackground = desktop(wakeScene)
     let writing = BismillahView(frame: NSRect(origin: .zero, size: popupRect.size))
 
-    func bismillahPopup(_ ctx: CGContext, tp: Double) {
-        guard let image = writing.renderFrame(at: max(tp, 0) + BismillahView.leadIn) else { return }
+    /// `textAlpha` set means the fading style: the finished text, at that opacity (`fadeAt` is where the panel fades out).
+    func bismillahPopup(_ ctx: CGContext, tp: Double, textAlpha: CGFloat? = nil, fadeAt: Double? = nil) {
+        guard let image = writing.renderFrame(at: textAlpha == nil ? max(tp, 0) + BismillahView.leadIn : BismillahView.totalDuration) else { return }
         // the same envelope as the prototype: quick pop in, hold, fade out
-        let popIn = 0.164, fadeStart = BismillahView.totalDuration + 1.862, fadeEnd = fadeStart + 0.41
+        let popIn = 0.164, fadeStart = fadeAt ?? BismillahView.totalDuration + 1.862, fadeEnd = fadeStart + (fadeAt == nil ? 0.41 : 0.35)
         var opacity = 1.0, scale = 1.0
         if tp < popIn { let e = easeOut(tp / popIn); opacity = e; scale = 0.94 + 0.06 * e }
         else if tp > fadeStart { let e = easeOut((tp - fadeStart) / (fadeEnd - fadeStart)); opacity = 1 - e; scale = 1 - 0.015 * e }
@@ -249,6 +256,7 @@ MainActor.assumeIsolated {
         ctx.setShadow(offset: .zero, blur: 0)
         ctx.addPath(CGPath(roundedRect: popupRect.insetBy(dx: 0.5, dy: 0.5), cornerWidth: 29.5, cornerHeight: 29.5, transform: nil))
         ctx.setStrokeColor(color(0xffffff, 0.07)); ctx.setLineWidth(1); ctx.strokePath()
+        if let textAlpha { ctx.setAlpha(textAlpha) }
         ctx.draw(image, in: popupRect)
         ctx.endTransparencyLayer()
     }
@@ -290,4 +298,123 @@ MainActor.assumeIsolated {
         dhikrFrames.append(dhikr(phrase, 0, 0.6))
     }
     write(dhikrFrames, to: dhikrPath)
+
+    // MARK: - GIF 3: the same wake, in fading mode
+
+    /// The text's opacity `tp` seconds after the popup appears: the same envelope as BismillahView's fading style.
+    func fadeAlpha(_ tp: Double) -> CGFloat {
+        let delay = 0.21                                              // PopupController starts the text a moment after the panel
+        let local = tp - delay, visibleFor = BismillahView.totalDuration + 2.0 - delay
+        func smooth(_ u: Double) -> Double { let u = min(max(u, 0), 1); return u * u * (3 - 2 * u) }
+        return CGFloat(min(smooth(local / BismillahView.fadeTime), smooth((visibleFor - local) / BismillahView.fadeTime)))
+    }
+    let hideAt = BismillahView.totalDuration + 2.0                    // when the panel itself starts to fade
+    func fadeWake(_ tp: Double?, black: CGFloat = 0, _ delay: Double) -> Frame {
+        ({ compose(wakeBackground, wakeScene, blackout: black) { ctx in
+            if let tp { bismillahPopup(ctx, tp: tp, textAlpha: fadeAlpha(tp), fadeAt: hideAt) }
+        } }, delay)
+    }
+    var fadeFrames: [Frame] = [fadeWake(nil, black: 1, 0.8)]
+    for veil in [0.75, 0.5, 0.3, 0.12] { fadeFrames.append(fadeWake(nil, black: CGFloat(veil), 0.1)) }
+    fadeFrames += [fadeWake(nil, 0.5), fadeWake(0.06, 0.06), fadeWake(0.12, 0.06)]
+    var ft = 0.18
+    while ft < 0.9 { fadeFrames.append(fadeWake(ft, 0.06)); ft += 0.06 }                        // fades in
+    fadeFrames.append(fadeWake(3.0, 1.9))                                                     // the pause (shorter than the real one)
+    ft = hideAt - 0.6
+    while ft < hideAt + 0.02 { fadeFrames.append(fadeWake(ft, 0.06)); ft += 0.06 }              // fades out
+    fadeFrames += [fadeWake(hideAt + 0.1, 0.08), fadeWake(hideAt + 0.2, 0.08), fadeWake(hideAt + 0.3, 0.3)]   // then the popup itself
+    write(fadeFrames, to: fadePath)
+
+    // MARK: - GIF 4: the tasbih counter
+
+    // the Bismillah menu bar item sits where desktop() puts it; the counter hangs from its left edge
+    let barInk = NSColor(red: 0x14 / 255, green: 0x14 / 255, blue: 0x1a / 255, alpha: 1)
+    let clockWidth = width(textLine("Tue 13 Oct  9:41 AM", NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular), barInk))
+    let wifiLeft = designW - 14 - clockWidth - 18 - 27 - 14 - 18
+    let itemWidth = width(textLine("بسم الله", NSFont(name: "GeezaPro", size: 15) ?? .systemFont(ofSize: 13), barInk))
+    let counterLeft = wifiLeft - 16 - (itemWidth + 18)
+    let counterTop = designH - 32 - 2
+    let tasbihBackground = desktop(tasbihScene)
+    let green = color(0x30d158)
+
+    /// The counter at `count`, `open` of the way through its opening (0...1), the number scaled by `bump`.
+    func counter(_ ctx: CGContext, count: Int, open: Double = 1, bump: CGFloat = 1, resetHot: Bool = false) {
+        let e = easeOut(open)
+        if e <= 0 { return }
+        let w: CGFloat = 272, h: CGFloat = 84
+        let done = count >= 100
+        ctx.saveGState()
+        ctx.translateBy(x: counterLeft, y: counterTop)           // top-left corner, y up
+        ctx.scaleBy(x: 0.9 + 0.1 * e, y: 0.9 + 0.1 * e)             // grows out of that corner while fading in
+        ctx.setAlpha(e)
+        ctx.beginTransparencyLayer(auxiliaryInfo: nil)
+        let rect = CGRect(x: 0, y: -h, width: w, height: h)
+        let shape = CGPath(roundedRect: rect, cornerWidth: 18, cornerHeight: 18, transform: nil)
+        ctx.setShadow(offset: CGSize(width: 0, height: -10 * tasbihScene.scale), blur: 22 * tasbihScene.scale, color: color(0x000000, 0.28))
+        ctx.addPath(shape); ctx.setFillColor(color(0xf6f6f8, 0.72)); ctx.fillPath()          // glass: the wallpaper shows through
+        ctx.setShadow(offset: .zero, blur: 0)
+        ctx.addPath(CGPath(roundedRect: rect.insetBy(dx: 0.25, dy: 0.25), cornerWidth: 17.75, cornerHeight: 17.75, transform: nil))
+        ctx.setStrokeColor(color(0x000000, 0.14)); ctx.setLineWidth(0.5); ctx.strokePath()
+        ctx.translateBy(x: 0, y: -h)                                // now bottom-left, y up, like the app's layout
+
+        // the ring
+        let centre = CGPoint(x: 43, y: 42), radius: CGFloat = 25
+        ctx.setLineWidth(5); ctx.setLineCap(.round)
+        ctx.setStrokeColor(color(0x000000, 0.14)); ctx.addArc(center: centre, radius: radius, startAngle: 0, endAngle: 2 * .pi, clockwise: false); ctx.strokePath()
+        if count > 0 {
+            ctx.setStrokeColor(done ? green : color(0x14141a, 0.9))
+            let fraction = CGFloat(min(count, 100)) / 100
+            ctx.addArc(center: centre, radius: radius, startAngle: .pi / 2, endAngle: .pi / 2 - 2 * .pi * fraction, clockwise: true); ctx.strokePath()
+        }
+        // the number
+        let digits = textLine("\(count)", NSFont.monospacedDigitSystemFont(ofSize: count < 1000 ? 17 : 13, weight: .semibold), barInk)
+        ctx.saveGState()
+        ctx.translateBy(x: centre.x, y: centre.y); ctx.scaleBy(x: bump, y: bump)
+        ctx.textPosition = CGPoint(x: -width(digits) / 2, y: -6); CTLineDraw(digits, ctx)
+        ctx.restoreGState()
+        // the dhikr
+        ctx.textPosition = CGPoint(x: 84, y: 48)
+        CTLineDraw(textLine("سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ", NSFont(name: "GeezaPro", size: 22) ?? .systemFont(ofSize: 22), barInk), ctx)
+        // "Space" as a key, then what it does
+        let key = CGRect(x: 84, y: 20, width: 43, height: 16)
+        ctx.addPath(CGPath(roundedRect: key, cornerWidth: 4, cornerHeight: 4, transform: nil))
+        ctx.setFillColor(color(0x14141a, 0.07)); ctx.fillPath()
+        ctx.addPath(CGPath(roundedRect: key.insetBy(dx: 0.5, dy: 0.5), cornerWidth: 3.5, cornerHeight: 3.5, transform: nil))
+        ctx.setStrokeColor(color(0x14141a, 0.28)); ctx.setLineWidth(1); ctx.strokePath()
+        let space = textLine("Space", NSFont.systemFont(ofSize: 10, weight: .medium), barInk.withAlphaComponent(0.6))
+        ctx.textPosition = CGPoint(x: key.midX - width(space) / 2, y: key.minY + 4.5); CTLineDraw(space, ctx)
+        let hintText = textLine(done ? "to continue" : "to count · goal 100", NSFont.systemFont(ofSize: 11), barInk.withAlphaComponent(0.6))
+        ctx.textPosition = CGPoint(x: 132, y: 24); CTLineDraw(hintText, ctx)
+        if done {                                                                        // Reset appears at 100
+            let button = CGRect(x: 201, y: 18, width: 51, height: 20)
+            ctx.addPath(CGPath(roundedRect: button, cornerWidth: 10, cornerHeight: 10, transform: nil))
+            ctx.setFillColor(resetHot ? color(0x14141a, 0.2) : color(0xffffff, 0.95)); ctx.fillPath()
+            ctx.addPath(CGPath(roundedRect: button.insetBy(dx: 0.25, dy: 0.25), cornerWidth: 9.75, cornerHeight: 9.75, transform: nil))
+            ctx.setStrokeColor(color(0x000000, 0.18)); ctx.setLineWidth(0.5); ctx.strokePath()
+            let reset = textLine("Reset", NSFont.systemFont(ofSize: 11), barInk)
+            ctx.textPosition = CGPoint(x: button.midX - width(reset) / 2, y: button.minY + 6); CTLineDraw(reset, ctx)
+        }
+        // the close mark
+        ctx.setStrokeColor(color(0x14141a, 0.3)); ctx.setLineWidth(1.2)
+        ctx.move(to: CGPoint(x: 252.5, y: 65.5)); ctx.addLine(to: CGPoint(x: 259.5, y: 72.5))
+        ctx.move(to: CGPoint(x: 259.5, y: 65.5)); ctx.addLine(to: CGPoint(x: 252.5, y: 72.5)); ctx.strokePath()
+        ctx.endTransparencyLayer()
+        ctx.restoreGState()
+    }
+    func tasbih(_ count: Int, open: Double = 1, bump: CGFloat = 1, resetHot: Bool = false, _ delay: Double) -> Frame {
+        ({ compose(tasbihBackground, tasbihScene) { ctx in counter(ctx, count: count, open: open, bump: bump, resetHot: resetHot) } }, delay)
+    }
+
+    var tasbihFrames: [Frame] = [tasbih(0, open: 0, 0.8)]                                         // just the menu bar
+    for step in 1...5 { tasbihFrames.append(tasbih(0, open: Double(step) / 5, 0.04)) }             // drops down
+    tasbihFrames.append(tasbih(0, 0.7))
+    for n in 1...8 { tasbihFrames += [tasbih(n, bump: 1.12, 0.05), tasbih(n, 0.1)] }                 // Space, Space, Space...
+    for n in [14, 22, 35, 50, 68, 85] { tasbihFrames.append(tasbih(n, 0.2)) }                       // and on (skipping ahead)
+    for n in 96...99 { tasbihFrames.append(tasbih(n, 0.22)) }
+    tasbihFrames += [tasbih(100, bump: 1.3, 0.07), tasbih(100, bump: 1.1, 0.07), tasbih(100, 1.1)]       // 100: green, Reset appears
+    tasbihFrames += [tasbih(101, bump: 1.12, 0.05), tasbih(101, 0.7)]                              // it keeps going
+    tasbihFrames += [tasbih(101, resetHot: true, 0.25), tasbih(0, 0.8)]                              // Reset
+    for step in (0..<4).reversed() { tasbihFrames.append(tasbih(0, open: Double(step) / 4, 0.05)) }   // closes
+    tasbihFrames.append(tasbih(0, open: 0, 0.5))
+    write(tasbihFrames, to: tasbihPath)
 }

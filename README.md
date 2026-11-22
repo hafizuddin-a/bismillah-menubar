@@ -5,7 +5,7 @@
 <h1 align="center">Bismillah</h1>
 
 <p align="center">
-  Writes out the bismillah on your screen, like handwriting, every time your Mac wakes.
+  Shows the bismillah on your screen every time your Mac wakes, with dhikr reminders and a tasbih counter in the menu bar.
 </p>
 
 <p align="center">
@@ -18,30 +18,32 @@
 
 <br>
 
-Bismillah is a small menu bar app for Mac. It shows a black popup in the middle of the screen and writes out
-بسم الله الرحمن الرحيم stroke by stroke, the way Apple's "hello" animation is drawn.
+Bismillah is a small menu bar app for Mac. It shows a black popup in the middle of the screen with
+بسم الله الرحمن الرحيم, either fading in and out (the default) or written out stroke by stroke, the way Apple's
+"hello" animation is drawn. You choose under **Animation Mode**.
 
 - Shows when you open the app and every time your Mac wakes, so it greets you when you open the lid. If the
   lid opens onto the lock screen it waits until you unlock.
 - Optional **dhikr reminders**: *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ*, *أَسْتَغْفِرُ ٱللَّهَ ٱلْعَظِيمَ* or *ٱللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ* slides
   out of the notch at random times through the day, as many times a day as you choose.
-- A menu bar item that reads **بسم الله**, with Show Bismillah, Dhikr Reminders, Launch at Login, Show on All Screens, the update options and Quit.
-  No Dock icon.
+- A **tasbih counter** in the menu bar: press Space to count *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* up to 100. It remembers your number.
+- A menu bar item that reads **بسم الله**, with Show Bismillah, Animation Mode, Dhikr Reminders, Tasbih Counter, Launch at Login,
+  Show on All Screens, the update options and Quit. No Dock icon.
 - No account, and it only remembers its own settings. Its only network access is the update check (see [Updates](#updates)).
 
-The letters are real font outlines revealed by a pen path that follows each letter's centreline: right to
-left, one word at a time, with the dots and vowel marks added last. With Reduce Motion turned on, it shows the
-finished text without the writing.
+In writing mode the letters are real font outlines revealed by a pen path that follows each letter's centreline:
+right to left, one word at a time, with the dots and vowel marks added last. With Reduce Motion turned on, it shows
+the finished text without any animation.
 
 Requires macOS 14 or later (Apple Silicon and Intel).
 
 <p align="center">
-  <img src="assets/demo-wake.gif" width="400" alt="The screen waking up, then the bismillah being written out in a black popup">
+  <img src="assets/demo-fade.gif" width="400" alt="The screen waking up, then the bismillah fading in and out in a black popup">
   <img src="assets/demo-dhikr.gif" width="400" alt="Three dhikr opening out of the notch one after another">
 </p>
 
 <p align="center">
-  <sub><b>When your Mac wakes:</b> the bismillah is written out. &nbsp;·&nbsp; <b>Through the day:</b> a dhikr opens out of the notch.</sub>
+  <sub><b>When your Mac wakes:</b> the bismillah fades in and out (or is written out). &nbsp;·&nbsp; <b>Through the day:</b> a dhikr opens out of the notch.</sub>
 </p>
 
 ## Install
@@ -79,7 +81,7 @@ if you want to read it), so it opens without the warning described below.
      **Open Anyway** next to Bismillah, then open the app again.
    - **Earlier macOS:** right-click the app, choose **Open**, then **Open** again.
    - Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/Bismillah.app`
-4. The bismillah is written out straight away and **بسم الله** appears in the menu bar. Choose **Launch at
+4. The bismillah appears straight away and **بسم الله** appears in the menu bar. Choose **Launch at
    Login** from its menu to have it start with your Mac.
 
 Prefer to read the code first? It is all in this repository, and you can build it yourself (below).
@@ -90,16 +92,48 @@ Click **بسم الله** in the menu bar:
 
 | Item            | What it does |
 |-----------------|--------------|
-| Show Bismillah  | Writes it out again |
+| Show Bismillah  | Shows it again |
+| Animation Mode  | **Fading** (the default) fades the bismillah in and out; **Writing** writes it out like handwriting |
 | Dhikr Reminders | Choose how many random dhikr popups a day (off by default) and the hours they appear in, see when the next one is, or show one now |
+| Tasbih Counter  | Opens a small counter under the menu bar: press Space to count up to 100 |
 | Launch at Login | Starts Bismillah when you log in (tick to turn on) |
 | Show on All Screens | Shows the bismillah and the dhikr popups on every screen at once instead of just one (off by default) |
 | Update Automatically | Checks for new versions and installs them by itself (on by default) |
 | Check for Updates… | Checks right now and tells you what it found |
 | Quit Bismillah  | Quits the app |
 
-The popup fades away by itself a couple of seconds after it finishes writing. Click it or press Esc to dismiss
-it sooner.
+The popup stays for about seven seconds, then fades away by itself. Click it or press Esc to dismiss it sooner.
+
+## Animation modes
+
+Choose **Animation Mode** in the menu. Both modes keep the popup on screen for the same length of time.
+
+<p align="center">
+  <img src="assets/demo-wake.gif" width="400" alt="The bismillah being written out stroke by stroke in a black popup">
+  <img src="assets/demo-fade.gif" width="400" alt="The bismillah fading in and out in a black popup">
+</p>
+
+<p align="center">
+  <sub><b>Writing:</b> the pen writes it out, right to left. &nbsp;·&nbsp; <b>Fading:</b> it fades in, pauses, and fades out. This is the default.</sub>
+</p>
+
+The fade in and out are quick, about half a second each, with the rest of the time spent holding the finished text.
+With Reduce Motion turned on, both modes just show the text.
+
+## Tasbih counter
+
+Choose **Tasbih Counter** in the menu and a small glass popup drops down from the menu bar item, the way a menu
+does, with *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* and a ring that fills toward 100.
+
+<p align="center">
+  <img src="assets/demo-tasbih.gif" width="500" alt="The tasbih counter dropping down from the menu bar and counting up to 100, then being reset">
+</p>
+
+- Press **Space** to count one. Holding the key down counts only once.
+- It stays open until you close it, so you can leave it up while you work. Press **Esc**, click the ✕, or choose
+  **Tasbih Counter** again to close it.
+- The number is remembered, between openings and when you quit and reopen the app.
+- At 100 the ring turns green and a **Reset** button appears. You can also just keep counting past 100.
 
 ## Dhikr reminders
 

@@ -6,12 +6,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let popup = PopupController()
     private let notchPopup = NotchPopupController()
+    private let tasbih = TasbihCounter()
     private lazy var updater = Updater(isPopupShowing: { [weak self] in
         (self?.popup.isShowing ?? false) || (self?.notchPopup.isShowing ?? false)
     })
     private lazy var dhikr = DhikrScheduler(show: { [weak self] in self?.showDhikrIfPossible() ?? false })
     private var loginItem: NSMenuItem!
     private var allScreensItem: NSMenuItem!
+    private var styleItems: [NSMenuItem] = []
     private var autoUpdateItem: NSMenuItem!
     private var dhikrCountItems: [NSMenuItem] = []
     private var dhikrNextItem: NSMenuItem!
@@ -32,6 +34,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let show = NSMenuItem(title: "Show Bismillah", action: #selector(showBismillah), keyEquivalent: "b")
         show.target = self
         menu.addItem(show)
+
+        // Animation ▸ Writing / Fading
+        let styleMenu = NSMenu()
+        for (title, style) in [("Writing", BismillahView.Style.writing), ("Fading", .fading)] {
+            let item = NSMenuItem(title: title, action: #selector(chooseStyle(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = style.rawValue
+            styleMenu.addItem(item)
+            styleItems.append(item)
+        }
+        let styleParent = NSMenuItem(title: "Animation Mode", action: nil, keyEquivalent: "")
+        styleParent.submenu = styleMenu
+        menu.addItem(styleParent)
 
         // Dhikr Reminders ▸ Off / 1 per day / 3 per day … / Next: … / Show Now
         let dhikrMenu = NSMenu()
@@ -80,6 +95,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let dhikrParent = NSMenuItem(title: "Dhikr Reminders", action: nil, keyEquivalent: "")
         dhikrParent.submenu = dhikrMenu
         menu.addItem(dhikrParent)
+        let counter = NSMenuItem(title: "Tasbih Counter", action: #selector(openTasbihCounter), keyEquivalent: "")
+        counter.target = self
+        menu.addItem(counter)
 
         menu.addItem(.separator())
         loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
@@ -109,7 +127,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // After an automatic update the app reopens itself quietly; every other launch greets you.
         if !CommandLine.arguments.contains("--after-update") {
-            popup.show(allScreens: showOnAllScreens)
+            popup.show(allScreens: showOnAllScreens, style: animationStyle)
         }
         updater.startAutomaticChecks()
         dhikr.start()
@@ -146,7 +164,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // wake and screensDidWake usually both fire; don't greet twice
         guard Date().timeIntervalSince(lastGreeting) > 5 else { return }
         lastGreeting = Date()
-        popup.show(allScreens: showOnAllScreens)
+        popup.show(allScreens: showOnAllScreens, style: animationStyle)
     }
 
     private static var screenIsLocked: Bool {
@@ -183,7 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showBismillah() {
         lastGreeting = Date()
-        popup.show(allScreens: showOnAllScreens)
+        popup.show(allScreens: showOnAllScreens, style: animationStyle)
     }
 
     /// Off by default: the bismillah appears on the screen you are using, the dhikr on the notched screen.
@@ -193,6 +211,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func toggleAllScreens() { showOnAllScreens.toggle() }
+
+    /// How the bismillah appears: faded in and out (the default) or written out by the pen.
+    private var animationStyle: BismillahView.Style {
+        get { BismillahView.Style(rawValue: UserDefaults.standard.string(forKey: "AnimationStyle") ?? "") ?? .fading }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "AnimationStyle") }
+    }
+
+    @objc private func chooseStyle(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let style = BismillahView.Style(rawValue: raw) else { return }
+        animationStyle = style
+    }
+
+    @objc private func openTasbihCounter() { tasbih.toggle(below: statusItem.button?.window?.frame) }
 
     @objc private func toggleAutomaticUpdates() {
         updater.automaticEnabled.toggle()
@@ -222,6 +253,7 @@ extension AppDelegate: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
         allScreensItem.state = showOnAllScreens ? .on : .off
+        for item in styleItems { item.state = (item.representedObject as? String) == animationStyle.rawValue ? .on : .off }
         autoUpdateItem.state = updater.automaticEnabled ? .on : .off
         for item in dhikrCountItems { item.state = item.tag == dhikr.perDay ? .on : .off }
         startHourParent.title = "Starts at \(Self.hourLabel(dhikr.startHour))"

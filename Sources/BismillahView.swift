@@ -43,8 +43,16 @@ final class BismillahView: NSView {
         return Pen(points: pts, cumulative: cum, width: CGFloat(s.width), start: s.start, duration: s.duration)
     }
 
+    /// How the bismillah appears: the pen writes it out, or the finished text fades in and out.
+    enum Style: String {
+        case writing, fading
+    }
+    /// The fading style fades in and out this quickly; the time between is a pause on the finished text.
+    static let fadeTime = 0.6
+
     private var link: CADisplayLink?
     private var startTime: CFTimeInterval = 0
+    private var fadeVisibleFor: Double?        // set while the fading style is playing
     private var glyphPath: CGPath?
     private var glyphScale: CGFloat = 1
     private var glyphOrigin: CGPoint = .zero      // bottom-left of the glyph box in view points
@@ -63,11 +71,19 @@ final class BismillahView: NSView {
 
     // MARK: - playback
 
-    /// Starts (or restarts) the writing animation.
-    func play(after delay: Double = 0) {
+    /// Starts (or restarts) the animation. The fading style stays up for `visibleFor` seconds in all, fade-out included.
+    func play(style: Style = .writing, after delay: Double = 0, visibleFor: Double = 0) {
         link?.invalidate()
         startTime = CACurrentMediaTime() + delay
-        renderFrame(at: -1)
+        if style == .fading {
+            fadeVisibleFor = visibleFor
+            renderFrame(at: Self.totalDuration, finalOnly: true)
+            setOpacity(0)
+        } else {
+            fadeVisibleFor = nil
+            setOpacity(1)
+            renderFrame(at: -1)
+        }
         let link = displayLink(target: self, selector: #selector(tick(_:)))
         link.add(to: .main, forMode: .common)
         self.link = link
@@ -77,11 +93,29 @@ final class BismillahView: NSView {
     func showFinished() {
         link?.invalidate()
         link = nil
+        fadeVisibleFor = nil
+        setOpacity(1)
         renderFrame(at: Self.totalDuration, finalOnly: true)
+    }
+
+    private func setOpacity(_ value: Float) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer?.opacity = value
+        CATransaction.commit()
     }
 
     @objc private func tick(_ link: CADisplayLink) {
         let t = CACurrentMediaTime() - startTime
+        if let visibleFor = fadeVisibleFor {
+            func smooth(_ u: Double) -> Double { let u = min(max(u, 0), 1); return u * u * (3 - 2 * u) }
+            setOpacity(Float(min(smooth(t / Self.fadeTime), smooth((visibleFor - t) / Self.fadeTime))))
+            if t >= visibleFor {
+                link.invalidate()
+                self.link = nil
+            }
+            return
+        }
         renderFrame(at: t)
         if t >= Self.totalDuration {
             link.invalidate()
