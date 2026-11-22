@@ -20,14 +20,17 @@ enum ScreenSharing {
 
     private static let assertionPhrases = ["screen shar", "sharing your screen", "sharing screen", "sharing the screen",
                                            "screen captur", "screen record", "display captur", "desktop shar"]
-    /// What a sharing indicator window says, in the apps that show one.
-    private static let indicatorPhrases = ["is sharing your screen", "is sharing a window", "is sharing a tab", "is sharing this tab",
-                                           "you are sharing", "you're sharing", "stop sharing", "stop share", "screen sharing",
-                                           "sharing control", "sharing toolbar", "share toolbar", "share statusbar", "recording"]
-    /// Apps whose window titles are about the meeting or recording rather than a web page, so they're safe to match.
-    private static let indicatorApps: Set<String> = ["zoom.us", "Microsoft Teams", "MSTeams", "Microsoft Teams (work or school)", "Slack",
-                                                     "Discord", "FaceTime", "Webex", "QuickTime Player", "screencaptureui", "Screenshot",
-                                                     "OBS", "Loom", "Screen Sharing", "Control Centre", "Control Center"]
+    /// What the sharing bar of a meeting app says. Specific on purpose: window titles in these apps also hold chat and
+    /// channel names, so a plain "sharing" or "recording" would trigger on a chat called "Sharing ideas".
+    private static let meetingPhrases = ["is sharing your screen", "is sharing a window", "you are sharing", "you're sharing",
+                                         "you are screen sharing", "stop sharing", "stop presenting", "sharing control", "sharing toolbar", "share toolbar",
+                                         "share statusbar"]
+    private static let meetingApps: Set<String> = ["zoom.us", "Microsoft Teams", "MSTeams", "Microsoft Teams (work or school)", "Slack",
+                                                   "Discord", "FaceTime", "Webex", "Loom"]
+    /// Apps whose job is capturing the screen, where the mention of recording is itself the sign.
+    private static let recorderPhrases = ["recording", "screen sharing", "sharing your screen", "stop sharing"]
+    private static let recorderApps: Set<String> = ["QuickTime Player", "screencaptureui", "Screenshot", "OBS", "Screen Sharing",
+                                                    "Control Centre", "Control Center"]
     /// Browsers show an indicator such as "meet.google.com is sharing your screen", but their window titles are also
     /// web page titles, so only the specific "is sharing" wording counts there.
     private static let browserPhrases = ["is sharing your screen", "is sharing a window", "is sharing a tab", "is sharing this tab"]
@@ -53,9 +56,9 @@ enum ScreenSharing {
             guard (window[kCGWindowOwnerPID as String] as? Int32) != me,
                   let owner = window[kCGWindowOwnerName as String] as? String,
                   let title = (window[kCGWindowName as String] as? String)?.lowercased(), !title.isEmpty else { continue }
-            if owner == "zoom.us", title.contains("share") { return true }                        // Zoom's share toolbar and status bar
-            if owner.contains("Teams"), title.contains("sharing") { return true }
-            if indicatorApps.contains(owner), indicatorPhrases.contains(where: title.contains) { return true }
+            if owner == "zoom.us", title.contains("share toolbar") || title.contains("share statusbar") { return true }
+            if meetingApps.contains(owner) || owner.contains("Teams"), meetingPhrases.contains(where: title.contains) { return true }
+            if recorderApps.contains(owner), recorderPhrases.contains(where: title.contains) { return true }
             if browserPhrases.contains(where: title.contains) { return true }
         }
         return false

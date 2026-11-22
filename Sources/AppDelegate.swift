@@ -356,9 +356,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - bismillah:// links
 
+    private var lastURLAction = Date.distantPast
+
     /// bismillah://show, bismillah://dhikr, bismillah://counter, bismillah://count (adds one to the counter)
     func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls where url.scheme == "bismillah" {
+        // A web page can open these links too, so don't let any one burst of them pile up popups or inflate the count.
+        guard Date().timeIntervalSince(lastURLAction) > 1 else { return }
+        lastURLAction = Date()
+        for url in urls.prefix(1) where url.scheme == "bismillah" {
             switch (url.host ?? url.path).lowercased() {
             case "show": showBismillah()
             case "dhikr": notchPopup.show(allScreens: showOnAllScreens, showReading: showTransliteration)

@@ -10,6 +10,7 @@
 set -euo pipefail
 
 REPO=hafizuddin-a/bismillah-menubar
+CURL=(curl --proto '=https' --tlsv1.2 -fsSL)            # https only, from start to finish, redirects included
 say() { printf '%s\n' "$*"; }
 fail() { printf 'Bismillah install failed: %s\n' "$*" >&2; exit 1; }
 
@@ -30,13 +31,20 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
 say "Looking up the latest release..."
-curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" -o "$WORK/release.json" || fail "couldn't reach GitHub."
+"${CURL[@]}" "https://api.github.com/repos/$REPO/releases/latest" -o "$WORK/release.json" || fail "couldn't reach GitHub."
 TAG=$(grep -m1 '"tag_name"' "$WORK/release.json" | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
 URL=$(grep '"browser_download_url"' "$WORK/release.json" | grep -E '\.zip"' | head -1 | sed -E 's/.*"(https[^"]+)".*/\1/')
 [ -n "$TAG" ] && [ -n "$URL" ] || fail "couldn't find the download in the latest release."
+case "$URL" in
+  "https://github.com/$REPO/releases/download/"*) ;;
+  *) fail "the download isn't from this project's GitHub releases." ;;
+esac
 
 say "Downloading Bismillah $TAG..."
-curl -fSL --progress-bar "$URL" -o "$WORK/Bismillah.zip" || fail "the download didn't finish."
+curl --proto '=https' --tlsv1.2 -fSL --progress-bar "$URL" -o "$WORK/Bismillah.zip" || fail "the download didn't finish."
+
+SIZE=$(stat -f %z "$WORK/Bismillah.zip")
+[ "$SIZE" -gt 0 ] && [ "$SIZE" -lt 52428800 ] || fail "the download is the wrong size. Nothing was installed."
 
 # The release notes list the zip's SHA-256; check it when it's there.
 WANT=$(grep -oE 'SHA-256 of [^`]*`[0-9a-f]{64}`' "$WORK/release.json" | head -1 | grep -oE '[0-9a-f]{64}' || true)

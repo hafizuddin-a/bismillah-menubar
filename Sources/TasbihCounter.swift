@@ -150,9 +150,10 @@ final class TasbihCounter {
 
     /// Hanging from the menu bar, left edge on the menu bar item's (as a menu does), kept inside the screen.
     private static func origin(below anchor: NSRect?, height: CGFloat) -> NSPoint {
-        let screen = anchor.flatMap { a in NSScreen.screens.first { $0.frame.intersects(a) } } ?? NSScreen.main ?? NSScreen.screens[0]
-        let area = screen.visibleFrame
-        let left = anchor?.minX ?? area.maxX - width - 8
+        // a menu bar item that is hidden or off screen has no usable position: fall back to the top right
+        let anchorScreen = anchor.flatMap { a in NSScreen.screens.first { $0.frame.intersects(a) } }
+        let area = (anchorScreen ?? NSScreen.main ?? NSScreen.screens[0]).visibleFrame
+        let left = anchorScreen == nil ? area.maxX - width - 8 : anchor!.minX
         let x = min(max(left, area.minX + 4), area.maxX - width - 4)
         return NSPoint(x: x, y: area.maxY - height - 2)
     }

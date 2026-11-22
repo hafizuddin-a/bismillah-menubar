@@ -90,9 +90,11 @@ final class Updater {
     private func runAutomatic() async {
         working = true
         defer { working = false }
-        UserDefaults.standard.set(Date(), forKey: Self.lastCheckKey)
         do {
-            guard let release = try await latestRelease() else { return }
+            // Only a check that reached GitHub counts toward the week. If the Mac was offline, try again at the next chance.
+            let release = try await latestRelease()
+            UserDefaults.standard.set(Date(), forKey: Self.lastCheckKey)
+            guard let release else { return }
             try await install(release, waitForQuietMoment: true)
         } catch {
             NSLog("Bismillah: automatic update failed: \(error.localizedDescription)")
@@ -110,10 +112,10 @@ final class Updater {
     private func runManual() async {
         working = true
         defer { working = false }
-        UserDefaults.standard.set(Date(), forKey: Self.lastCheckKey)
         var found: Release?
         do {
             found = try await latestRelease()
+            UserDefaults.standard.set(Date(), forKey: Self.lastCheckKey)
             guard let release = found else {
                 showAlert("Bismillah is up to date", "You have the latest version (\(currentVersion)).")
                 return
@@ -168,8 +170,21 @@ final class Updater {
         guard let zip = api.assets.first(where: { $0.name == "Bismillah-\(version).zip" }),
               let sig = api.assets.first(where: { $0.name == "Bismillah-\(version).zip.sig" })
         else { throw UpdateError.missingFiles(version) }
+        guard isTrustedDownload(zip.browser_download_url), isTrustedDownload(sig.browser_download_url) else {
+            throw UpdateError.badPackage("the download isn't from this project's GitHub releases")
+        }
         return Release(version: version, zip: zip.browser_download_url, signature: sig.browser_download_url, page: api.html_url)
     }
+
+    /// https from this repository's releases. (Only the test override, `BISMILLAH_FEED_URL`, may point elsewhere.)
+    private func isTrustedDownload(_ url: URL) -> Bool {
+        if ProcessInfo.processInfo.environment["BISMILLAH_FEED_URL"] != nil { return true }
+        return url.scheme == "https" && url.host?.lowercased() == "github.com"
+            && url.path.hasPrefix("/\(Self.repository)/releases/download/")
+    }
+
+    /// An update is about half a megabyte. Anything far bigger isn't one.
+    private static let maximumDownload = 50 * 1024 * 1024
 
     static func isNewer(_ candidate: String, than current: String) -> Bool {
         func parts(_ v: String) -> [Int] {
@@ -222,6 +237,8 @@ final class Updater {
             if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) { throw UpdateError.http(http.statusCode) }
             let zip = work.appendingPathComponent("update.zip")
             try FileManager.default.moveItem(at: downloaded, to: zip)
+            let size = (try FileManager.default.attributesOfItem(atPath: zip.path)[.size] as? Int) ?? 0
+            guard size > 0, size <= Self.maximumDownload else { throw UpdateError.badPackage("unexpected download size") }
 
             let signatureText = String(decoding: try await fetch(release.signature), as: UTF8.self)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
