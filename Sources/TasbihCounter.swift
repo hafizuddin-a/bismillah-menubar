@@ -19,6 +19,9 @@ final class TasbihCounter {
     private let spaceKey = KeyCapView(title: "Space")
     private let hintLabel = TasbihCounter.label("", font: .systemFont(ofSize: 11), color: .secondaryLabelColor)
     private let resetButton = NSButton(title: "Reset", target: nil, action: nil)
+    private let hoverArea = ResetHoverArea()           // over the ring: hover shows a reset icon, click resets
+    private let resetIcon = NSImageView()
+    private var hovering = false
     private let closeButton = NSButton(title: "", target: nil, action: nil)
 
     private(set) var count: Int {
@@ -35,6 +38,7 @@ final class TasbihCounter {
         let panel = self.panel ?? makePanel()
         self.panel = panel
         closing = false
+        hovering = false
         refresh(animated: false)
         panel.setFrameOrigin(Self.origin(below: anchor))
         NSApp.activate()                             // so Space and Esc reach the popup
@@ -88,6 +92,7 @@ final class TasbihCounter {
 
     func reset() {
         count = 0
+        hovering = false
         refresh(animated: true)
     }
 
@@ -151,7 +156,17 @@ final class TasbihCounter {
         countLabel.maximumNumberOfLines = 1
         countLabel.lineBreakMode = .byClipping
 
-        for view in [ringView, countLabel, phraseLabel, spaceKey, hintLabel, resetButton, closeButton] { content.addSubview(view) }
+        resetIcon.image = NSImage(systemSymbolName: "arrow.counterclockwise", accessibilityDescription: nil)
+        resetIcon.symbolConfiguration = .init(pointSize: 20, weight: .semibold)
+        resetIcon.contentTintColor = .labelColor
+        resetIcon.isHidden = true
+        resetIcon.translatesAutoresizingMaskIntoConstraints = false
+        hoverArea.translatesAutoresizingMaskIntoConstraints = false
+        hoverArea.onHover = { [weak self] inside in self?.hovering = inside; self?.applyHover() }
+        hoverArea.onClick = { [weak self] in self?.reset() }
+        hoverArea.setAccessibilityLabel("Reset count to 0")
+
+        for view in [ringView, countLabel, resetIcon, hoverArea, phraseLabel, spaceKey, hintLabel, resetButton, closeButton] { content.addSubview(view) }
         NSLayoutConstraint.activate([
             ringView.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 14),
             ringView.centerYAnchor.constraint(equalTo: content.centerYAnchor),
@@ -160,6 +175,12 @@ final class TasbihCounter {
             countLabel.centerXAnchor.constraint(equalTo: ringView.centerXAnchor),
             countLabel.centerYAnchor.constraint(equalTo: ringView.centerYAnchor),
             countLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 46),
+            resetIcon.centerXAnchor.constraint(equalTo: ringView.centerXAnchor),
+            resetIcon.centerYAnchor.constraint(equalTo: ringView.centerYAnchor),
+            hoverArea.leadingAnchor.constraint(equalTo: ringView.leadingAnchor),
+            hoverArea.trailingAnchor.constraint(equalTo: ringView.trailingAnchor),
+            hoverArea.topAnchor.constraint(equalTo: ringView.topAnchor),
+            hoverArea.bottomAnchor.constraint(equalTo: ringView.bottomAnchor),
             phraseLabel.leadingAnchor.constraint(equalTo: ringView.trailingAnchor, constant: 14),
             phraseLabel.topAnchor.constraint(equalTo: content.topAnchor, constant: 15),
             spaceKey.leadingAnchor.constraint(equalTo: phraseLabel.leadingAnchor),
@@ -213,10 +234,19 @@ final class TasbihCounter {
         countLabel.font = .monospacedDigitSystemFont(ofSize: n < 1000 ? 17 : (n < 10000 ? 13 : 10), weight: .semibold)     // keeps big numbers inside the ring
         hintLabel.stringValue = done ? "to continue" : "to count · goal \(Self.goal)"
         resetButton.isHidden = !done
+        hoverArea.isEnabled = n > 0
+        applyHover()
         ringView.setProgress(CGFloat(min(n, Self.goal)) / CGFloat(Self.goal), complete: done,
                              animated: animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
         panel?.setAccessibilityValue("\(n)")
         hintLabel.setAccessibilityLabel("Press Space " + hintLabel.stringValue)
+    }
+
+    /// While the pointer is over the ring (and there is something to reset), the number gives way to a reset icon.
+    private func applyHover() {
+        let showReset = hovering && count > 0
+        countLabel.isHidden = showReset
+        resetIcon.isHidden = !showReset
     }
 
     /// A small bump of the number on every count, a bigger one on reaching the goal.
@@ -352,4 +382,42 @@ private final class KeyCapView: NSView {
             layer?.borderColor = NSColor.labelColor.withAlphaComponent(0.28).cgColor
         }
     }
+}
+
+/// An invisible patch over the ring: reports the pointer entering and leaving, and clicks, while it is enabled.
+final class ResetHoverArea: NSView {
+    var onHover: ((Bool) -> Void)?
+    var onClick: (() -> Void)?
+    var isEnabled = false {
+        didSet {
+            guard isEnabled != oldValue else { return }
+            if !isEnabled { onHover?(false) }
+            window?.invalidateCursorRects(for: self)
+            setAccessibilityElement(isEnabled)
+        }
+    }
+    private var tracking: NSTrackingArea?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        setAccessibilityRole(.button)
+        setAccessibilityElement(false)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking { removeTrackingArea(tracking) }
+        let area = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self, userInfo: nil)
+        addTrackingArea(area)
+        tracking = area
+    }
+
+    override func mouseEntered(with event: NSEvent) { if isEnabled { onHover?(true) } }
+    override func mouseExited(with event: NSEvent) { onHover?(false) }
+    override func mouseDown(with event: NSEvent) { if isEnabled { onClick?() } }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func resetCursorRects() { if isEnabled { addCursorRect(bounds, cursor: .pointingHand) } }
+    override func accessibilityPerformPress() -> Bool { guard isEnabled else { return false }; onClick?(); return true }
 }

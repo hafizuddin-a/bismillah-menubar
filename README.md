@@ -133,6 +133,7 @@ does, with *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* and a ri
 - It stays open until you close it, so you can leave it up while you work. Press **Esc**, click the ✕, or choose
   **Tasbih Counter** again to close it.
 - The number is remembered, between openings and when you quit and reopen the app.
+- Rest the pointer on the number and it turns into a reset icon. Click it to start again from 0.
 - At 100 the ring turns green and a **Reset** button appears. You can also just keep counting past 100.
 
 ## Dhikr reminders
