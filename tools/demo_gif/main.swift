@@ -332,7 +332,7 @@ MainActor.assumeIsolated {
     let clockWidth = width(textLine("Tue 13 Oct  9:41 AM", NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular), barInk))
     let wifiLeft = designW - 14 - clockWidth - 18 - 27 - 14 - 18
     let itemWidth = width(textLine("بسم الله", NSFont(name: "GeezaPro", size: 15) ?? .systemFont(ofSize: 13), barInk))
-    let counterLeft = wifiLeft - 16 - (itemWidth + 18)
+    let counterLeft = min(wifiLeft - 16 - (itemWidth + 18), designW - 330 - 4)       // the real one is kept inside the screen
     let counterTop = designH - 32 - 2
     let tasbihBackground = desktop(tasbihScene)
     let green = color(0x30d158)
@@ -341,7 +341,7 @@ MainActor.assumeIsolated {
     func counter(_ ctx: CGContext, count: Int, open: Double = 1, bump: CGFloat = 1, resetHot: Bool = false) {
         let e = easeOut(open)
         if e <= 0 { return }
-        let w: CGFloat = 272, h: CGFloat = 84
+        let w: CGFloat = 330, h: CGFloat = 96
         let done = count >= 100
         ctx.saveGState()
         ctx.translateBy(x: counterLeft, y: counterTop)           // top-left corner, y up
@@ -358,7 +358,7 @@ MainActor.assumeIsolated {
         ctx.translateBy(x: 0, y: -h)                                // now bottom-left, y up, like the app's layout
 
         // the ring
-        let centre = CGPoint(x: 43, y: 42), radius: CGFloat = 25
+        let centre = CGPoint(x: 43, y: 48), radius: CGFloat = 25
         ctx.setLineWidth(5); ctx.setLineCap(.round)
         ctx.setStrokeColor(color(0x000000, 0.14)); ctx.addArc(center: centre, radius: radius, startAngle: 0, endAngle: 2 * .pi, clockwise: false); ctx.strokePath()
         if count > 0 {
@@ -373,10 +373,10 @@ MainActor.assumeIsolated {
         ctx.textPosition = CGPoint(x: -width(digits) / 2, y: -6); CTLineDraw(digits, ctx)
         ctx.restoreGState()
         // the dhikr
-        ctx.textPosition = CGPoint(x: 84, y: 48)
+        ctx.textPosition = CGPoint(x: 86, y: 62)
         CTLineDraw(textLine("سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ", NSFont(name: "GeezaPro", size: 22) ?? .systemFont(ofSize: 22), barInk), ctx)
         // "Space" as a key, then what it does
-        let key = CGRect(x: 84, y: 20, width: 43, height: 16)
+        let key = CGRect(x: 86, y: 36, width: 43, height: 16)
         ctx.addPath(CGPath(roundedRect: key, cornerWidth: 4, cornerHeight: 4, transform: nil))
         ctx.setFillColor(color(0x14141a, 0.07)); ctx.fillPath()
         ctx.addPath(CGPath(roundedRect: key.insetBy(dx: 0.5, dy: 0.5), cornerWidth: 3.5, cornerHeight: 3.5, transform: nil))
@@ -384,9 +384,9 @@ MainActor.assumeIsolated {
         let space = textLine("Space", NSFont.systemFont(ofSize: 10, weight: .medium), barInk.withAlphaComponent(0.6))
         ctx.textPosition = CGPoint(x: key.midX - width(space) / 2, y: key.minY + 4.5); CTLineDraw(space, ctx)
         let hintText = textLine(done ? "to continue" : "to count · goal 100", NSFont.systemFont(ofSize: 11), barInk.withAlphaComponent(0.6))
-        ctx.textPosition = CGPoint(x: 132, y: 24); CTLineDraw(hintText, ctx)
+        ctx.textPosition = CGPoint(x: 134, y: 40); CTLineDraw(hintText, ctx)
         if done {                                                                        // Reset appears at 100
-            let button = CGRect(x: 201, y: 18, width: 51, height: 20)
+            let button = CGRect(x: 203, y: 34, width: 51, height: 20)
             ctx.addPath(CGPath(roundedRect: button, cornerWidth: 10, cornerHeight: 10, transform: nil))
             ctx.setFillColor(resetHot ? color(0x14141a, 0.2) : color(0xffffff, 0.95)); ctx.fillPath()
             ctx.addPath(CGPath(roundedRect: button.insetBy(dx: 0.25, dy: 0.25), cornerWidth: 9.75, cornerHeight: 9.75, transform: nil))
@@ -394,10 +394,25 @@ MainActor.assumeIsolated {
             let reset = textLine("Reset", NSFont.systemFont(ofSize: 11), barInk)
             ctx.textPosition = CGPoint(x: button.midX - width(reset) / 2, y: button.minY + 6); CTLineDraw(reset, ctx)
         }
+        // the Hadith link (underlined, link blue) and the menu bar option
+        let link = NSColor(red: 0x00 / 255, green: 0x6c / 255, blue: 0xe0 / 255, alpha: 1)
+        if let symbol = NSImage(systemSymbolName: "book.closed", accessibilityDescription: nil)?.withSymbolConfiguration(.init(pointSize: 10, weight: .regular)) {
+            let tinted = NSImage(size: symbol.size, flipped: false) { r in symbol.draw(in: r); link.set(); r.fill(using: .sourceAtop); return true }
+            var box = CGRect(origin: .zero, size: tinted.size)
+            if let cg = tinted.cgImage(forProposedRect: &box, context: nil, hints: nil) { ctx.draw(cg, in: CGRect(x: 86, y: 12, width: box.width * 0.9, height: box.height * 0.9)) }
+        }
+        let hadith = NSAttributedString(string: "Hadith", attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: link, .underlineStyle: NSUnderlineStyle.single.rawValue])
+        ctx.textPosition = CGPoint(x: 102, y: 15); CTLineDraw(CTLineCreateWithAttributedString(hadith), ctx)
+        let box = CGRect(x: 150, y: 14, width: 10, height: 10)                          // the unticked checkbox
+        ctx.addPath(CGPath(roundedRect: box, cornerWidth: 2.5, cornerHeight: 2.5, transform: nil)); ctx.setFillColor(color(0x14141a, 0.08)); ctx.fillPath()
+        ctx.addPath(CGPath(roundedRect: box.insetBy(dx: 0.25, dy: 0.25), cornerWidth: 2.25, cornerHeight: 2.25, transform: nil))
+        ctx.setStrokeColor(color(0x14141a, 0.25)); ctx.setLineWidth(0.5); ctx.strokePath()
+        ctx.textPosition = CGPoint(x: 166, y: 15)
+        CTLineDraw(textLine("Show saved count in menu bar", NSFont.systemFont(ofSize: 10), barInk.withAlphaComponent(0.7)), ctx)
         // the close mark
         ctx.setStrokeColor(color(0x14141a, 0.3)); ctx.setLineWidth(1.2)
-        ctx.move(to: CGPoint(x: 252.5, y: 65.5)); ctx.addLine(to: CGPoint(x: 259.5, y: 72.5))
-        ctx.move(to: CGPoint(x: 259.5, y: 65.5)); ctx.addLine(to: CGPoint(x: 252.5, y: 72.5)); ctx.strokePath()
+        ctx.move(to: CGPoint(x: 310.5, y: 77.5)); ctx.addLine(to: CGPoint(x: 317.5, y: 84.5))
+        ctx.move(to: CGPoint(x: 317.5, y: 77.5)); ctx.addLine(to: CGPoint(x: 310.5, y: 84.5)); ctx.strokePath()
         ctx.endTransparencyLayer()
         ctx.restoreGState()
     }

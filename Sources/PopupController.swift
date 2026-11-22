@@ -48,7 +48,7 @@ final class PopupController {
     var isShowing: Bool { windows.contains { $0.panel.isVisible } }
 
     /// Shows the popup on the screen the mouse is on, or on every screen when `allScreens` is true.
-    func show(allScreens: Bool = false, style: BismillahView.Style = .writing) {
+    func show(allScreens: Bool = false, style: BismillahView.Style = .writing, caption: Bool = false) {
         hideWork?.cancel()
         let screens = Self.targetScreens(allScreens: allScreens)
         while windows.count < screens.count { windows.append(makeWindow()) }
@@ -56,6 +56,7 @@ final class PopupController {
 
         for (index, screen) in screens.enumerated() {
             let (panel, view) = windows[index]
+            view.showsCaption = caption
             panel.setFrame(Self.frame(centeredOn: screen), display: false)
             panel.alphaValue = 0
             panel.orderFrontRegardless()
@@ -106,6 +107,7 @@ final class PopupController {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
+        panel.sharingType = .none                       // asks to be left out of screen shares and recordings
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.setAccessibilityLabel("Bismillah")

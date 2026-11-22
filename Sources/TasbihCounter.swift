@@ -9,13 +9,19 @@ final class TasbihCounter {
     static let goal = 100
     private static let countKey = "TasbihCount"
     private static let phrase = "سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ"
-    private static let size = NSSize(width: 272, height: 84)
+    private static let width: CGFloat = 330
+    private static let padding: CGFloat = 13
+    private static var hadithURL: URL { URL(string: "https://sunnah.com/bukhari:6405")! }   // Sahih al-Bukhari 6405
     private static let cornerRadius: CGFloat = 12
 
     private var panel: CounterPanel?
     private let ringView = RingView(frame: NSRect(x: 0, y: 0, width: 58, height: 58))
     private let phraseLabel = TasbihCounter.label(phrase, font: NSFont(name: "GeezaPro", size: 22) ?? .systemFont(ofSize: 22))
     private let countLabel = TasbihCounter.label("0", font: .monospacedDigitSystemFont(ofSize: 17, weight: .semibold))
+    private let readingLabel = TasbihCounter.label("Subhanallahi wa bihamdihi", font: .systemFont(ofSize: 11, weight: .medium), color: .secondaryLabelColor)
+    private let hadithButton = LinkButton(title: "Hadith", target: nil, action: nil)
+    private let menuBarToggle = NSButton(checkboxWithTitle: "Show saved count in menu bar", target: nil, action: nil)
+    private let contentStack = NSStackView()
     private let spaceKey = KeyCapView(title: "Space")
     private let hintLabel = TasbihCounter.label("", font: .systemFont(ofSize: 11), color: .secondaryLabelColor)
     private let resetButton = NSButton(title: "Reset", target: nil, action: nil)
@@ -31,6 +37,36 @@ final class TasbihCounter {
 
     var isShowing: Bool { panel?.isVisible ?? false }
 
+    /// Called whenever the number changes through counting or reset.
+    var onChange: (() -> Void)?
+
+    /// Whether the number is shown next to بسم الله in the menu bar. Off by default; set from the counter itself.
+    var showsCountInMenuBar: Bool {
+        get { UserDefaults.standard.bool(forKey: "ShowCountInMenuBar") }
+        set { UserDefaults.standard.set(newValue, forKey: "ShowCountInMenuBar") }
+    }
+
+    /// Whether the transliteration is shown under the Arabic. Takes effect at once if the counter is open.
+    var showsReading = false {
+        didSet {
+            guard showsReading != oldValue else { return }
+            applyReading()
+        }
+    }
+
+    /// As tall as its rows need, whichever of them are showing.
+    private var height: CGFloat {
+        contentStack.layoutSubtreeIfNeeded()
+        return max(ceil(contentStack.fittingSize.height) + 2 * Self.padding, 84)
+    }
+
+    private func applyReading() {
+        readingLabel.isHidden = !showsReading
+        guard let panel else { return }
+        let f = panel.frame                              // grows downward, the top stays under the menu bar
+        panel.setFrame(NSRect(x: f.minX, y: f.maxY - height, width: Self.width, height: height), display: true)
+    }
+
     /// Opens the counter under `anchor` (the menu bar item, in screen coordinates), its left edge lined up with the
     /// item's like a menu's, showing the saved number. Choosing it again closes it.
     func toggle(below anchor: NSRect?) {
@@ -39,8 +75,10 @@ final class TasbihCounter {
         self.panel = panel
         closing = false
         hovering = false
+        menuBarToggle.state = showsCountInMenuBar ? .on : .off
         refresh(animated: false)
-        panel.setFrameOrigin(Self.origin(below: anchor))
+        applyReading()
+        panel.setFrameOrigin(Self.origin(below: anchor, height: height))
         NSApp.activate()                             // so Space and Esc reach the popup
         panel.makeKeyAndOrderFront(nil)
         open(panel)
@@ -88,12 +126,14 @@ final class TasbihCounter {
         count += 1
         refresh(animated: true)
         pulse(strongly: count == Self.goal)
+        onChange?()
     }
 
     func reset() {
         count = 0
         hovering = false
         refresh(animated: true)
+        onChange?()
     }
 
     // MARK: - building
@@ -109,16 +149,16 @@ final class TasbihCounter {
     }
 
     /// Hanging from the menu bar, left edge on the menu bar item's (as a menu does), kept inside the screen.
-    private static func origin(below anchor: NSRect?) -> NSPoint {
+    private static func origin(below anchor: NSRect?, height: CGFloat) -> NSPoint {
         let screen = anchor.flatMap { a in NSScreen.screens.first { $0.frame.intersects(a) } } ?? NSScreen.main ?? NSScreen.screens[0]
         let area = screen.visibleFrame
-        let left = anchor?.minX ?? area.maxX - size.width - 8
-        let x = min(max(left, area.minX + 4), area.maxX - size.width - 4)
-        return NSPoint(x: x, y: area.maxY - size.height - 2)
+        let left = anchor?.minX ?? area.maxX - width - 8
+        let x = min(max(left, area.minX + 4), area.maxX - width - 4)
+        return NSPoint(x: x, y: area.maxY - height - 2)
     }
 
     private func makePanel() -> CounterPanel {
-        let panel = CounterPanel(contentRect: NSRect(origin: .zero, size: Self.size),
+        let panel = CounterPanel(contentRect: NSRect(x: 0, y: 0, width: Self.width, height: height),
                                  styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isFloatingPanel = true
         panel.level = .floating
@@ -132,7 +172,7 @@ final class TasbihCounter {
         panel.onSpace = { [weak self] in self?.increment() }
         panel.onEscape = { [weak self] in self?.close() }
 
-        let content = NSView(frame: NSRect(origin: .zero, size: Self.size))
+        let content = NSView(frame: NSRect(x: 0, y: 0, width: Self.width, height: 100))
         content.translatesAutoresizingMaskIntoConstraints = false
 
         resetButton.target = self
@@ -140,7 +180,6 @@ final class TasbihCounter {
         resetButton.bezelStyle = .rounded
         resetButton.controlSize = .small
         resetButton.refusesFirstResponder = true         // so Space always counts, never presses a button
-        resetButton.translatesAutoresizingMaskIntoConstraints = false
         closeButton.target = self
         closeButton.action = #selector(closePressed)
         closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Close")
@@ -149,13 +188,33 @@ final class TasbihCounter {
         closeButton.contentTintColor = .tertiaryLabelColor
         closeButton.refusesFirstResponder = true
         closeButton.translatesAutoresizingMaskIntoConstraints = false
+        hadithButton.target = self
+        hadithButton.action = #selector(openHadith)
+        hadithButton.image = NSImage(systemSymbolName: "book.closed", accessibilityDescription: nil)
+        hadithButton.symbolConfiguration = .init(pointSize: 10, weight: .regular)
+        hadithButton.imagePosition = .imageLeading
+        hadithButton.isBordered = false
+        hadithButton.attributedTitle = NSAttributedString(string: "Hadith", attributes: [      // looks like a link
+            .font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.linkColor,
+            .underlineStyle: NSUnderlineStyle.single.rawValue])
+        hadithButton.contentTintColor = .linkColor
+        hadithButton.toolTip = "The hadith about saying it 100 times (opens sunnah.com)"
+        hadithButton.setAccessibilityLabel("Read the hadith about saying it 100 times")
+        hadithButton.refusesFirstResponder = true
+        menuBarToggle.target = self
+        menuBarToggle.action = #selector(menuBarTogglePressed)
+        menuBarToggle.controlSize = .mini
+        menuBarToggle.font = .systemFont(ofSize: 10)
+        menuBarToggle.refusesFirstResponder = true
+        menuBarToggle.setAccessibilityLabel("Show the saved count next to بسم الله in the menu bar")
         ringView.translatesAutoresizingMaskIntoConstraints = false
         phraseLabel.setAccessibilityLabel("Subhanallahi wa bihamdihi")
         phraseLabel.alignment = .left
+        readingLabel.alignment = .left
+        readingLabel.isHidden = !showsReading
         hintLabel.alignment = .left
         countLabel.maximumNumberOfLines = 1
         countLabel.lineBreakMode = .byClipping
-
         resetIcon.image = NSImage(systemSymbolName: "arrow.counterclockwise", accessibilityDescription: nil)
         resetIcon.symbolConfiguration = .init(pointSize: 20, weight: .semibold)
         resetIcon.contentTintColor = .labelColor
@@ -166,7 +225,26 @@ final class TasbihCounter {
         hoverArea.onClick = { [weak self] in self?.reset() }
         hoverArea.setAccessibilityLabel("Reset count to 0")
 
-        for view in [ringView, countLabel, resetIcon, hoverArea, phraseLabel, spaceKey, hintLabel, resetButton, closeButton] { content.addSubview(view) }
+        // the rows, top to bottom: the dhikr, its reading, "Space to count" (and Reset), then Hadith and the menu bar option
+        let hintRow = NSStackView(views: [spaceKey, hintLabel, resetButton])
+        hintRow.orientation = .horizontal
+        hintRow.spacing = 5
+        hintRow.alignment = .centerY
+        hintRow.heightAnchor.constraint(equalToConstant: 20).isActive = true        // the same height with or without Reset
+        let linkRow = NSStackView(views: [hadithButton, menuBarToggle])
+        linkRow.orientation = .horizontal
+        linkRow.spacing = 12
+        linkRow.alignment = .centerY
+        contentStack.orientation = .vertical
+        contentStack.alignment = .leading
+        contentStack.spacing = 4
+        contentStack.detachesHiddenViews = true
+        contentStack.translatesAutoresizingMaskIntoConstraints = false
+        for view in [phraseLabel, readingLabel, hintRow, linkRow] { contentStack.addArrangedSubview(view) }
+        contentStack.setCustomSpacing(2, after: phraseLabel)
+        contentStack.setCustomSpacing(7, after: hintRow)
+
+        for view in [ringView, countLabel, resetIcon, hoverArea, contentStack, closeButton] { content.addSubview(view) }
         NSLayoutConstraint.activate([
             ringView.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 14),
             ringView.centerYAnchor.constraint(equalTo: content.centerYAnchor),
@@ -181,14 +259,9 @@ final class TasbihCounter {
             hoverArea.trailingAnchor.constraint(equalTo: ringView.trailingAnchor),
             hoverArea.topAnchor.constraint(equalTo: ringView.topAnchor),
             hoverArea.bottomAnchor.constraint(equalTo: ringView.bottomAnchor),
-            phraseLabel.leadingAnchor.constraint(equalTo: ringView.trailingAnchor, constant: 14),
-            phraseLabel.topAnchor.constraint(equalTo: content.topAnchor, constant: 15),
-            spaceKey.leadingAnchor.constraint(equalTo: phraseLabel.leadingAnchor),
-            spaceKey.centerYAnchor.constraint(equalTo: resetButton.centerYAnchor),
-            hintLabel.leadingAnchor.constraint(equalTo: spaceKey.trailingAnchor, constant: 5),
-            hintLabel.centerYAnchor.constraint(equalTo: resetButton.centerYAnchor),
-            resetButton.leadingAnchor.constraint(equalTo: hintLabel.trailingAnchor, constant: 8),
-            resetButton.topAnchor.constraint(equalTo: phraseLabel.bottomAnchor, constant: 4),
+            contentStack.leadingAnchor.constraint(equalTo: ringView.trailingAnchor, constant: 14),
+            contentStack.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+            contentStack.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -14),
             closeButton.topAnchor.constraint(equalTo: content.topAnchor, constant: 7),
             closeButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -8),
             closeButton.widthAnchor.constraint(equalToConstant: 16),
@@ -218,12 +291,17 @@ final class TasbihCounter {
             ])
             panel.contentView = menuLook
         }
-        panel.setContentSize(Self.size)
+        panel.setContentSize(NSSize(width: Self.width, height: height))
         return panel
     }
 
     @objc private func resetPressed() { reset() }
     @objc private func closePressed() { close() }
+    @objc private func openHadith() { NSWorkspace.shared.open(Self.hadithURL) }
+    @objc private func menuBarTogglePressed() {
+        showsCountInMenuBar = menuBarToggle.state == .on
+        onChange?()
+    }
 
     // MARK: - updating
 
@@ -420,4 +498,9 @@ final class ResetHoverArea: NSView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func resetCursorRects() { if isEnabled { addCursorRect(bounds, cursor: .pointingHand) } }
     override func accessibilityPerformPress() -> Bool { guard isEnabled else { return false }; onClick?(); return true }
+}
+
+/// A borderless button that shows the pointing hand, so it reads as a link.
+private final class LinkButton: NSButton {
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }

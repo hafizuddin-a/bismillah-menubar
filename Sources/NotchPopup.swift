@@ -51,22 +51,27 @@ final class NotchPopupView: NSView {
     static let openWidth: CGFloat = 370
     static let textAreaHeight: CGFloat = 70
     static let margin: CGFloat = 40                // room around the shape for its shadow
+    static let readingExtra: CGFloat = 10          // taller by this much when the transliteration is shown
 
-    static func size(for geometry: NotchGeometry) -> NSSize {
-        NSSize(width: openWidth + 2 * margin, height: geometry.topInset + textAreaHeight + margin)
+    static func size(for geometry: NotchGeometry, showReading: Bool = false) -> NSSize {
+        NSSize(width: openWidth + 2 * margin,
+               height: geometry.topInset + textAreaHeight + (showReading ? readingExtra : 0) + margin)
     }
 
     private let geometry: NotchGeometry
     private let shape = CAShapeLayer()
     private let label = CATextLayer()
+    private let readingLabel = CATextLayer()
+    private let textArea: CGFloat
     private var currentPath: CGPath?
 
     /// Called when the black shape is clicked.
     var onClick: (() -> Void)?
 
-    init(geometry: NotchGeometry, phrase: Dhikr = NotchPopupView.phrases[0]) {
+    init(geometry: NotchGeometry, phrase: Dhikr = NotchPopupView.phrases[0], showReading: Bool = false) {
         self.geometry = geometry
-        super.init(frame: NSRect(origin: .zero, size: Self.size(for: geometry)))
+        textArea = Self.textAreaHeight + (showReading ? Self.readingExtra : 0)
+        super.init(frame: NSRect(origin: .zero, size: Self.size(for: geometry, showReading: showReading)))
         wantsLayer = true
         layer = CALayer()
         layerContentsRedrawPolicy = .never
@@ -93,10 +98,23 @@ final class NotchPopupView: NSView {
         label.isWrapped = false
         label.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
         let textHeight: CGFloat = 52
-        let areaBottom = bounds.height - geometry.topInset - Self.textAreaHeight
-        label.frame = CGRect(x: (bounds.width - Self.openWidth) / 2, y: areaBottom + (Self.textAreaHeight - textHeight) / 2 - 2,
+        let areaBottom = bounds.height - geometry.topInset - textArea
+        let readingSpace = showReading ? Self.readingExtra : 0
+        label.frame = CGRect(x: (bounds.width - Self.openWidth) / 2,
+                             y: areaBottom + readingSpace + (Self.textAreaHeight - textHeight) / 2 - 2,
                              width: Self.openWidth, height: textHeight)
         layer?.addSublayer(label)
+        if showReading {
+            readingLabel.string = phrase.reading
+            readingLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+            readingLabel.fontSize = 13
+            readingLabel.foregroundColor = NSColor(white: 1, alpha: 0.66).cgColor
+            readingLabel.alignmentMode = .center
+            readingLabel.isWrapped = false
+            readingLabel.contentsScale = label.contentsScale
+            readingLabel.frame = CGRect(x: (bounds.width - Self.openWidth) / 2, y: areaBottom + readingSpace + 4, width: Self.openWidth, height: 18)
+            layer?.addSublayer(readingLabel)
+        }
         apply(progress: 0)
     }
 
@@ -115,7 +133,7 @@ final class NotchPopupView: NSView {
     func apply(progress p: CGFloat) {
         let p = min(max(p, 0), 1)
         func lerp(_ a: CGFloat, _ b: CGFloat) -> CGFloat { a + (b - a) * p }
-        let openHeight = geometry.topInset + Self.textAreaHeight
+        let openHeight = geometry.topInset + textArea
         let width = lerp(geometry.width, Self.openWidth)
         let height = lerp(geometry.height, openHeight)
         let radius = min(lerp(geometry.hasNotch ? 10 : 6, 30), height / 2, width / 2)
@@ -139,6 +157,7 @@ final class NotchPopupView: NSView {
         shape.shadowPath = path
         shape.shadowOpacity = Float(0.5 * p)
         label.opacity = Float(min(max((p - 0.55) / 0.35, 0), 1))        // the text arrives once the shape is mostly open
+        readingLabel.opacity = label.opacity
         CATransaction.commit()
     }
 }
@@ -174,7 +193,7 @@ final class NotchPopupController {
 
     /// Shows one dhikr (the same on every screen): on the notched screen, or the screen the mouse is on, or on
     /// every screen when `allScreens` is true.
-    func show(allScreens: Bool = false) {
+    func show(allScreens: Bool = false, showReading: Bool = false) {
         guard !isShowing else { return }
         let index = Self.nextPhrase(after: lastPhrase, count: NotchPopupView.phrases.count)
         lastPhrase = index
@@ -182,7 +201,7 @@ final class NotchPopupController {
         let geometries = allScreens && !NSScreen.screens.isEmpty ? NSScreen.screens.map(NotchGeometry.on) : [NotchGeometry.current()]
 
         windows = geometries.map { geometry in
-            let view = NotchPopupView(geometry: geometry, phrase: phrase)
+            let view = NotchPopupView(geometry: geometry, phrase: phrase, showReading: showReading)
             let size = view.frame.size
             let panel = NSPanel(contentRect: NSRect(x: geometry.centerX - size.width / 2,
                                                     y: geometry.screenFrame.maxY - size.height,
@@ -194,6 +213,7 @@ final class NotchPopupController {
             panel.isOpaque = false
             panel.backgroundColor = .clear
             panel.hasShadow = false                         // the shape draws its own
+            panel.sharingType = .none                       // asks to be left out of screen shares and recordings
             panel.isReleasedWhenClosed = false              // clicks reach only the shape (see NotchPopupView.hitTest)
             panel.setAccessibilityLabel(phrase.reading)
             view.onClick = { [weak self] in self?.dismiss() }

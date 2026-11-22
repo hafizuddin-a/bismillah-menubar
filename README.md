@@ -26,7 +26,9 @@ Bismillah is a small menu bar app for Mac. It shows a black popup in the middle 
   lid opens onto the lock screen it waits until you unlock.
 - Optional **dhikr reminders**: *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ*, *أَسْتَغْفِرُ ٱللَّهَ ٱلْعَظِيمَ* or *ٱللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ* slides
   out of the notch at random times through the day, as many times a day as you choose.
-- A **tasbih counter** in the menu bar: press Space to count *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* up to 100. It remembers your number.
+- A **tasbih counter** in the menu bar: press Space to count *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* up to 100. It remembers your number, and links to the hadith about saying it 100 times.
+- An optional **transliteration** under every popup, for anyone still learning to read Arabic.
+- **Global shortcuts** and `bismillah://` links, to show the bismillah or open the counter from anywhere.
 - A menu bar item that reads **بسم الله**, with Show Bismillah, Animation Mode, Dhikr Reminders, Tasbih Counter, Launch at Login,
   Show on All Screens, the update options and Quit. No Dock icon.
 - No account, and it only remembers its own settings. Its only network access is the update check (see [Updates](#updates)).
@@ -94,10 +96,12 @@ Click **بسم الله** in the menu bar:
 |-----------------|--------------|
 | Show Bismillah  | Shows it again |
 | Animation Mode  | **Fading** (the default) fades the bismillah in and out; **Writing** writes it out like handwriting |
-| Dhikr Reminders | Choose how many random dhikr popups a day (off by default) and the hours they appear in, see when the next one is, or show one now |
+| Show Transliteration | Adds the reading in Latin letters under every popup and the counter (off by default) |
+| Dhikr Reminders | Choose how many random dhikr popups a day (off by default) and the hours they appear in, skip them while you share your screen, see when the next one is, or show one now |
 | Tasbih Counter  | Opens a small counter under the menu bar: press Space to count up to 100 |
 | Launch at Login | Starts Bismillah when you log in (tick to turn on) |
 | Show on All Screens | Shows the bismillah and the dhikr popups on every screen at once instead of just one (off by default) |
+| Global Shortcuts | Turns the system-wide shortcuts on or off (on by default), see [Shortcuts and links](#shortcuts-and-links) |
 | Update Automatically | Checks for new versions and installs them by itself (on by default) |
 | Check for Updates… | Checks right now and tells you what it found |
 | Quit Bismillah  | Quits the app |
@@ -134,6 +138,9 @@ does, with *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* and a ri
   **Tasbih Counter** again to close it.
 - The number is remembered, between openings and when you quit and reopen the app.
 - Rest the pointer on the number and it turns into a reset icon. Click it to start again from 0.
+- **Hadith** opens the hadith about saying *Subhan Allah wa bihamdihi* a hundred times a day (Sahih al-Bukhari 6405,
+  on sunnah.com) in your browser. Bismillah itself still makes no network request.
+- Tick **Show saved count in menu bar** to see your number next to **بسم الله**.
 - At 100 the ring turns green and a **Reset** button appears. You can also just keep counting past 100.
 
 ## Dhikr reminders
@@ -153,12 +160,36 @@ Each popup picks one at random, never the same one twice in a row.
   The last option for the end, marked "end of day", runs through to midnight.
 - The times are random but spread over those hours, at least a few minutes apart. **Next: …** in the submenu shows
   when the next one is due, and **Show Now** shows one straight away.
+- **Skip While Screen Sharing** (on by default): a reminder that comes due while you are sharing your screen waits and
+  tries again a couple of minutes later. Being in a meeting is fine, only sharing is skipped. macOS has no official way
+  to tell whether you are sharing, so Bismillah looks for the signs that sharing apps leave. That works for some apps and
+  not others, so treat it as a best effort. **Next:** in the submenu changes to "Paused while screen sharing" when it
+  notices.
 - Today's plan is saved, so quitting and reopening the app doesn't reshuffle it or repeat popups. If you change the
   number or the hours mid-day, only the popups still to come are re-planned.
 - A popup that comes due while your Mac is asleep is skipped, not shown late. If the screen is locked or the
   handwriting popup is showing, it waits a couple of minutes and tries again.
 - It never takes focus, and only the black shape reacts to clicks. With Reduce Motion on, it fades in and out
   instead of opening.
+
+## Shortcuts and links
+
+Two shortcuts work from any app, on by default (turn them off under **Global Shortcuts**):
+
+| Shortcut | Does |
+|----------|------|
+| **Control-Option-B** | Shows the bismillah |
+| **Control-Option-T** | Opens or closes the tasbih counter |
+
+Bismillah also answers `bismillah://` links, so Shortcuts, scripts or other apps can trigger it, for example
+`open "bismillah://show"` in Terminal:
+
+| Link | Does |
+|------|------|
+| `bismillah://show` | Shows the bismillah |
+| `bismillah://dhikr` | Shows a dhikr popup |
+| `bismillah://counter` | Opens the tasbih counter |
+| `bismillah://count` | Adds one to the counter |
 
 ## Updates
 
@@ -180,6 +211,8 @@ finish first.
 
 ## What it can't do
 
+- It can't tell for sure when you are sharing your screen, because macOS doesn't say. **Skip While Screen Sharing**
+  is a best guess and may miss some apps.
 - It can't appear above the lock screen. If your Mac locks while it sleeps, the popup waits and shows right
   after you unlock.
 - Dhikr popups come from the notch only on a Mac that has one, and by default only on its own screen. Elsewhere they

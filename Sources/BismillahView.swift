@@ -50,6 +50,18 @@ final class BismillahView: NSView {
     /// The fading style fades in and out this quickly; the time between is a pause on the finished text.
     static let fadeTime = 0.6
 
+    /// The line under the text for people who can't read Arabic yet.
+    static let captionText = "Bismillahir Rahmanir Rahim"
+    private let caption = CATextLayer()
+    var showsCaption = false {
+        didSet {
+            guard showsCaption != oldValue else { return }
+            caption.isHidden = !showsCaption
+            glyphPath = nil                    // the text sits a little higher to make room
+            needsLayout = true
+        }
+    }
+
     private var link: CADisplayLink?
     private var startTime: CFTimeInterval = 0
     private var fadeVisibleFor: Double?        // set while the fading style is playing
@@ -63,6 +75,14 @@ final class BismillahView: NSView {
         layer = CALayer()
         layer?.contentsGravity = .resize
         layerContentsRedrawPolicy = .never
+        caption.string = Self.captionText
+        caption.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        caption.fontSize = 13
+        caption.foregroundColor = NSColor(white: 1, alpha: 0.66).cgColor
+        caption.alignmentMode = .center
+        caption.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+        caption.isHidden = true
+        layer?.addSublayer(caption)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
@@ -75,6 +95,17 @@ final class BismillahView: NSView {
     func play(style: Style = .writing, after delay: Double = 0, visibleFor: Double = 0) {
         link?.invalidate()
         startTime = CACurrentMediaTime() + delay
+        caption.removeAllAnimations()
+        caption.opacity = 1
+        if showsCaption && style == .writing {          // the reading arrives as the writing finishes
+            let arrive = CABasicAnimation(keyPath: "opacity")
+            arrive.fromValue = 0
+            arrive.toValue = 1
+            arrive.beginTime = CACurrentMediaTime() + delay + Self.totalDuration - 0.6
+            arrive.duration = 0.5
+            arrive.fillMode = .backwards
+            caption.add(arrive, forKey: "arrive")
+        }
         if style == .fading {
             fadeVisibleFor = visibleFor
             renderFrame(at: Self.totalDuration, finalOnly: true)
@@ -95,6 +126,8 @@ final class BismillahView: NSView {
         link = nil
         fadeVisibleFor = nil
         setOpacity(1)
+        caption.removeAllAnimations()
+        caption.opacity = 1
         renderFrame(at: Self.totalDuration, finalOnly: true)
     }
 
@@ -129,7 +162,7 @@ final class BismillahView: NSView {
         let w = BismillahData.width, h = BismillahData.height
         glyphScale = bounds.width * 0.88 / CGFloat(w)            // text spans ~88% of the popup
         let gw = CGFloat(w) * glyphScale, gh = CGFloat(h) * glyphScale
-        glyphOrigin = CGPoint(x: (bounds.width - gw) / 2, y: (bounds.height - gh) / 2)
+        glyphOrigin = CGPoint(x: (bounds.width - gw) / 2, y: (bounds.height - gh) / 2 + (showsCaption ? 10 : 0))
         // design space is y-down; CoreGraphics bitmap contexts are y-up
         let t = CGAffineTransform(a: glyphScale, b: 0, c: 0, d: -glyphScale,
                                   tx: glyphOrigin.x, ty: glyphOrigin.y + gh)
@@ -221,6 +254,10 @@ final class BismillahView: NSView {
 
     override func layout() {
         super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        caption.frame = CGRect(x: 0, y: 12, width: bounds.width, height: 20)
+        CATransaction.commit()
         glyphPath = nil                                  // rebuilt for the new size on the next frame
         if link == nil { renderFrame(at: Self.totalDuration, finalOnly: true) }
     }

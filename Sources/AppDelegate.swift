@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import ServiceManagement
 
 @MainActor
@@ -13,6 +14,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var dhikr = DhikrScheduler(show: { [weak self] in self?.showDhikrIfPossible() ?? false })
     private var loginItem: NSMenuItem!
     private var allScreensItem: NSMenuItem!
+    private var transliterationItem: NSMenuItem!
+    private var skipShareItem: NSMenuItem!
+    private var shortcutsItem: NSMenuItem!
     private var styleItems: [NSMenuItem] = []
     private var autoUpdateItem: NSMenuItem!
     private var dhikrCountItems: [NSMenuItem] = []
@@ -47,6 +51,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let styleParent = NSMenuItem(title: "Animation Mode", action: nil, keyEquivalent: "")
         styleParent.submenu = styleMenu
         menu.addItem(styleParent)
+        transliterationItem = NSMenuItem(title: "Show Transliteration", action: #selector(toggleTransliteration), keyEquivalent: "")
+        transliterationItem.target = self
+        menu.addItem(transliterationItem)
 
         // Dhikr Reminders ▸ Off / 1 per day / 3 per day … / Next: … / Show Now
         let dhikrMenu = NSMenu()
@@ -83,6 +90,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         endHourParent = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         endHourParent.submenu = endMenu
         dhikrMenu.addItem(endHourParent)
+        skipShareItem = NSMenuItem(title: "Skip While Screen Sharing", action: #selector(toggleSkipWhileSharing), keyEquivalent: "")
+        skipShareItem.target = self
+        dhikrMenu.addItem(skipShareItem)
         dhikrMenu.addItem(.separator())
         dhikrNextItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         dhikrNextItem.isEnabled = false
@@ -106,6 +116,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         allScreensItem = NSMenuItem(title: "Show on All Screens", action: #selector(toggleAllScreens), keyEquivalent: "")
         allScreensItem.target = self
         menu.addItem(allScreensItem)
+        // Global Shortcuts ▸ Enabled / the two shortcuts (shown greyed, for reference)
+        let shortcutsMenu = NSMenu()
+        shortcutsMenu.autoenablesItems = false
+        shortcutsItem = NSMenuItem(title: "Enabled", action: #selector(toggleGlobalShortcuts), keyEquivalent: "")
+        shortcutsItem.target = self
+        shortcutsMenu.addItem(shortcutsItem)
+        shortcutsMenu.addItem(.separator())
+        for (title, key) in [("Show Bismillah", "b"), ("Tasbih Counter", "t")] {
+            let info = NSMenuItem(title: title, action: nil, keyEquivalent: key)
+            info.keyEquivalentModifierMask = [.control, .option]
+            info.isEnabled = false
+            shortcutsMenu.addItem(info)
+        }
+        let shortcutsParent = NSMenuItem(title: "Global Shortcuts", action: nil, keyEquivalent: "")
+        shortcutsParent.submenu = shortcutsMenu
+        menu.addItem(shortcutsParent)
         autoUpdateItem = NSMenuItem(title: "Update Automatically", action: #selector(toggleAutomaticUpdates), keyEquivalent: "")
         autoUpdateItem.target = self
         menu.addItem(autoUpdateItem)
@@ -127,10 +153,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // After an automatic update the app reopens itself quietly; every other launch greets you.
         if !CommandLine.arguments.contains("--after-update") {
-            popup.show(allScreens: showOnAllScreens, style: animationStyle)
+            popup.show(allScreens: showOnAllScreens, style: animationStyle, caption: showTransliteration)
         }
         updater.startAutomaticChecks()
         dhikr.start()
+        tasbih.showsReading = showTransliteration
+        tasbih.onChange = { [weak self] in self?.updateStatusTitle() }
+        updateStatusTitle()
+        applyGlobalShortcuts()
 
         // Greet again whenever the Mac wakes (lid opened, or the display woke up).
         let workspace = NSWorkspace.shared.notificationCenter
@@ -164,7 +194,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // wake and screensDidWake usually both fire; don't greet twice
         guard Date().timeIntervalSince(lastGreeting) > 5 else { return }
         lastGreeting = Date()
-        popup.show(allScreens: showOnAllScreens, style: animationStyle)
+        popup.show(allScreens: showOnAllScreens, style: animationStyle, caption: showTransliteration)
     }
 
     private static var screenIsLocked: Bool {
@@ -179,7 +209,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if popup.isShowing || notchPopup.isShowing || Self.screenIsLocked || CGDisplayIsAsleep(CGMainDisplayID()) != 0 {
             return false
         }
-        notchPopup.show(allScreens: showOnAllScreens)
+        if skipDhikrWhileSharing && ScreenSharing.isActive() { return false }      // tries again in a couple of minutes
+        notchPopup.show(allScreens: showOnAllScreens, showReading: showTransliteration)
         return true
     }
 
@@ -195,13 +226,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return hour == 24 ? "\(text) (end of day)" : text
     }
 
-    @objc private func showDhikrNow() { notchPopup.show(allScreens: showOnAllScreens) }
+    @objc private func showDhikrNow() { notchPopup.show(allScreens: showOnAllScreens, showReading: showTransliteration) }
 
     // MARK: - menu actions
 
     @objc private func showBismillah() {
         lastGreeting = Date()
-        popup.show(allScreens: showOnAllScreens, style: animationStyle)
+        popup.show(allScreens: showOnAllScreens, style: animationStyle, caption: showTransliteration)
     }
 
     /// Off by default: the bismillah appears on the screen you are using, the dhikr on the notched screen.
@@ -223,7 +254,68 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         animationStyle = style
     }
 
-    @objc private func openTasbihCounter() { tasbih.toggle(below: statusItem.button?.window?.frame) }
+    @objc private func openTasbihCounter() {
+        tasbih.showsReading = showTransliteration
+        tasbih.toggle(below: statusItem.button?.window?.frame)
+    }
+
+    /// The reading of each phrase in Latin letters, under the Arabic, for people still learning to read it. Off by default.
+    private var showTransliteration: Bool {
+        get { UserDefaults.standard.bool(forKey: "ShowTransliteration") }
+        set { UserDefaults.standard.set(newValue, forKey: "ShowTransliteration") }
+    }
+
+    @objc private func toggleTransliteration() {
+        showTransliteration.toggle()
+        tasbih.showsReading = showTransliteration
+    }
+
+    /// On by default: a dhikr that comes due while the screen is being shared waits and tries again. Meetings are fine.
+    private var skipDhikrWhileSharing: Bool {
+        get { UserDefaults.standard.object(forKey: "SkipDhikrWhileSharing") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "SkipDhikrWhileSharing") }
+    }
+
+    @objc private func toggleSkipWhileSharing() { skipDhikrWhileSharing.toggle() }
+
+    private func updateStatusTitle() {
+        let count = tasbih.count
+        statusItem?.button?.title = tasbih.showsCountInMenuBar && count > 0 ? "بسم الله  \(count)" : "بسم الله"
+    }
+
+    /// On by default: Control-Option-B shows the bismillah and Control-Option-T opens the counter, from any app.
+    private var globalShortcutsOn: Bool {
+        get { UserDefaults.standard.object(forKey: "GlobalShortcuts") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "GlobalShortcuts") }
+    }
+
+    @objc private func toggleGlobalShortcuts() {
+        globalShortcutsOn.toggle()
+        applyGlobalShortcuts()
+    }
+
+    private func applyGlobalShortcuts() {
+        guard globalShortcutsOn else { GlobalHotKeys.shared.unregister(); return }
+        GlobalHotKeys.shared.register([
+            .init(keyCode: kVK_ANSI_B, modifiers: controlKey | optionKey) { [weak self] in self?.showBismillah() },
+            .init(keyCode: kVK_ANSI_T, modifiers: controlKey | optionKey) { [weak self] in self?.openTasbihCounter() },
+        ])
+    }
+
+    // MARK: - bismillah:// links
+
+    /// bismillah://show, bismillah://dhikr, bismillah://counter, bismillah://count (adds one to the counter)
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls where url.scheme == "bismillah" {
+            switch (url.host ?? url.path).lowercased() {
+            case "show": showBismillah()
+            case "dhikr": notchPopup.show(allScreens: showOnAllScreens, showReading: showTransliteration)
+            case "counter": if !tasbih.isShowing { openTasbihCounter() }
+            case "count": tasbih.increment()
+            default: break
+            }
+        }
+    }
 
     @objc private func toggleAutomaticUpdates() {
         updater.automaticEnabled.toggle()
@@ -253,6 +345,9 @@ extension AppDelegate: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
         allScreensItem.state = showOnAllScreens ? .on : .off
+        transliterationItem.state = showTransliteration ? .on : .off
+        skipShareItem.state = skipDhikrWhileSharing ? .on : .off
+        shortcutsItem.state = globalShortcutsOn ? .on : .off
         for item in styleItems { item.state = (item.representedObject as? String) == animationStyle.rawValue ? .on : .off }
         autoUpdateItem.state = updater.automaticEnabled ? .on : .off
         for item in dhikrCountItems { item.state = item.tag == dhikr.perDay ? .on : .off }
@@ -266,7 +361,9 @@ extension AppDelegate: NSMenuDelegate {
             item.state = item.tag == dhikr.endHour ? .on : .off
             item.isEnabled = item.tag > dhikr.startHour
         }
-        if let next = dhikr.nextPopup {
+        if skipDhikrWhileSharing && ScreenSharing.isActive() {
+            dhikrNextItem.title = "Paused while screen sharing"          // also a way to check the detection works for your setup
+        } else if let next = dhikr.nextPopup {
             let time = next.formatted(date: .omitted, time: .shortened)
             dhikrNextItem.title = Calendar.current.isDateInToday(next) ? "Next: \(time)" : "Next: tomorrow, \(time)"
         } else {
