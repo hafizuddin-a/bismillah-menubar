@@ -264,6 +264,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func chooseStyle(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String, let style = BismillahView.Style(rawValue: raw) else { return }
         animationStyle = style
+        showBismillah()                      // a preview, so you see the mode you just picked
     }
 
     @objc private func openTasbihCounter() {

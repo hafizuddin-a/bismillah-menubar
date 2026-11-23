@@ -110,7 +110,7 @@ The popup stays for about seven seconds, then fades away by itself. Click it or 
 
 ## Animation modes
 
-Choose **Animation Mode** in the menu. Both modes keep the popup on screen for the same length of time.
+Choose **Animation Mode** in the menu, and the bismillah plays straight away in the mode you picked. Both modes keep the popup on screen for the same length of time.
 
 <p align="center">
   <img src="assets/demo-wake.gif" width="400" alt="The bismillah being written out stroke by stroke in a black popup">
