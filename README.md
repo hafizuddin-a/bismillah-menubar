@@ -160,8 +160,8 @@ Each popup picks one at random, never the same one twice in a row.
   The last option for the end, marked "end of day", runs through to midnight.
 - The times are random but spread over those hours, at least a few minutes apart. **Next: …** in the submenu shows
   when the next one is due, and **Show Now** shows one straight away.
-- **Skip While Screen Sharing** (on by default): a reminder that comes due while you share your screen waits and
-  tries again a couple of minutes later. Being in a meeting is fine, only sharing is skipped. macOS has no official way
+- **Skip While Screen Sharing** (on by default): a reminder that comes due while you share your screen is held back
+  and planned again for after you stop. Being in a meeting is fine, only sharing is skipped. macOS has no official way
   to tell whether you are sharing, so Bismillah looks for the "sharing" bar that Zoom, Meet, Teams and similar apps show.
   To read those, it asks, once and with an explanation, for the **Screen Recording** permission in macOS. Bismillah
   doesn't record or look at your screen: macOS just uses that name for the permission that lets an app read window
@@ -171,8 +171,13 @@ Each popup picks one at random, never the same one twice in a row.
   changes to "Paused while screen sharing".
 - Today's plan is saved, so quitting and reopening the app doesn't reshuffle it or repeat popups. If you change the
   number or the hours mid-day, only the popups still to come are re-planned.
-- A popup that comes due while your Mac is asleep is skipped, not shown late. If the screen is locked or the
-  handwriting popup is showing, it waits a couple of minutes and tries again.
+- **Your number for the day stays your number.** A popup that comes due while you are away (the Mac is asleep or
+  Bismillah is closed, the screen is locked or off, you are sharing your screen, or the handwriting popup is on
+  screen) is never shown late and never queued up. Once you are back, the popups still owed are planned again at
+  random over the rest of your hours, starting a few minutes after you return, so you don't get a burst. Late in the
+  day they are packed a little closer (never under 5 minutes apart) so the total still fits. If you were away most of
+  the day, only what fits in the hours left is shown, and nothing carries over to tomorrow. **Next: soon** in the
+  submenu means it is being planned again.
 - It never takes focus, and only the black shape reacts to clicks. With Reduce Motion on, it fades in and out
   instead of opening.
 
@@ -217,8 +222,8 @@ finish first.
 
 - It can't tell for sure when you are sharing your screen, because macOS doesn't say. **Skip While Screen Sharing**
   reads the sharing bars of common apps (it works best with the Screen Recording permission) and may miss others.
-- It can't appear above the lock screen. If your Mac locks while it sleeps, the popup waits and shows right
-  after you unlock.
+- It can't appear above the lock screen. If your Mac is locked when one comes due, the popups still owed are planned
+  again for after you unlock.
 - Dhikr popups come from the notch only on a Mac that has one, and by default only on its own screen. Elsewhere they
   open from the top centre of the screen you are using. With **Show on All Screens** ticked they appear on every screen,
   opening from the notch on screens that have one and from the top centre on the rest.

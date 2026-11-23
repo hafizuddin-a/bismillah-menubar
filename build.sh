@@ -5,7 +5,7 @@
 set -e
 cd "$(dirname "$0")"
 APP=Bismillah.app
-VERSION=${VERSION:-1.3.3}      # override with VERSION=x.y.z ./build.sh
+VERSION=${VERSION:-1.3.4}      # override with VERSION=x.y.z ./build.sh
 UPDATE_KEY=$(tr -d '[:space:]' < tools/update-public-key.txt)
 FRAMEWORKS="-framework AppKit -framework QuartzCore -framework ServiceManagement -framework Carbon -framework IOKit"
 rm -rf "$APP" .build

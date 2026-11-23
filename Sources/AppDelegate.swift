@@ -11,7 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var updater = Updater(isPopupShowing: { [weak self] in
         (self?.popup.isShowing ?? false) || (self?.notchPopup.isShowing ?? false)
     })
-    private lazy var dhikr = DhikrScheduler(show: { [weak self] in self?.showDhikrIfPossible() ?? false })
+    private lazy var dhikr = DhikrScheduler(available: { [weak self] in self?.dhikrCanShow ?? false },
+                                            show: { [weak self] in self?.showDhikrIfPossible() ?? false })
     private var loginItem: NSMenuItem!
     private var allScreensItem: NSMenuItem!
     private var transliterationItem: NSMenuItem!
@@ -208,12 +209,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - dhikr
 
-    /// Called by the scheduler. Returns false when it isn't a good moment, so the scheduler tries again soon.
-    private func showDhikrIfPossible() -> Bool {
+    /// Whether a dhikr popup could appear right now: nothing else on screen, the screen is on and unlocked, and you
+    /// aren't sharing it (unless you turned that skip off).
+    private var dhikrCanShow: Bool {
         if popup.isShowing || notchPopup.isShowing || Self.screenIsLocked || CGDisplayIsAsleep(CGMainDisplayID()) != 0 {
             return false
         }
-        if skipDhikrWhileSharing && ScreenSharing.isActive() { return false }      // tries again in a couple of minutes
+        return !(skipDhikrWhileSharing && ScreenSharing.isActive())
+    }
+
+    /// Called by the scheduler. Returns false when it isn't a good moment; the scheduler then plans that popup
+    /// again for after you are back, rather than showing it late.
+    private func showDhikrIfPossible() -> Bool {
+        guard dhikrCanShow else { return false }
         notchPopup.show(allScreens: showOnAllScreens, showReading: showTransliteration)
         return true
     }
@@ -422,6 +430,8 @@ extension AppDelegate: NSMenuDelegate {
         }
         if skipDhikrWhileSharing && ScreenSharing.isActive() {
             dhikrNextItem.title = "Paused while screen sharing"          // also a way to check the detection works for your setup
+        } else if dhikr.isCatchingUp {
+            dhikrNextItem.title = "Next: soon"                                // being re-planned now that you are back
         } else if let next = dhikr.nextPopup {
             let time = next.formatted(date: .omitted, time: .shortened)
             dhikrNextItem.title = Calendar.current.isDateInToday(next) ? "Next: \(time)" : "Next: tomorrow, \(time)"
