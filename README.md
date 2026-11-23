@@ -199,6 +199,12 @@ Bismillah also answers `bismillah://` links, so Shortcuts, scripts or other apps
 | `bismillah://dhikr` | Shows a dhikr popup |
 | `bismillah://counter` | Opens the tasbih counter |
 | `bismillah://count` | Adds one to the counter |
+| `bismillah://count?n=33` | Adds 33 (any number from 1 to 100) |
+
+**In the Shortcuts app:** add an **Open URLs** action, type one of the links above, and name the shortcut, e.g.
+"Count 33 after prayer". From there you can run it from Spotlight, the menu bar, Siri ("Hey Siri, Count 33 after
+prayer") or a keyboard shortcut, or add it to an automation. (Bismillah doesn't offer its own Shortcuts actions
+because those need an Xcode-built app; links do the same job.)
 
 ## Updates
 

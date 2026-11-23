@@ -129,6 +129,14 @@ final class TasbihCounter {
         onChange?()
     }
 
+    /// Adds `n` at once (1 to 100), e.g. from a Shortcut.
+    func add(_ n: Int) {
+        count += min(max(n, 1), Self.goal)
+        refresh(animated: true)
+        pulse(strongly: count >= Self.goal)
+        onChange?()
+    }
+
     func reset() {
         count = 0
         hovering = false

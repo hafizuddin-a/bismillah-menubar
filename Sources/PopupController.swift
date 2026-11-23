@@ -60,6 +60,8 @@ final class PopupController {
         let hold = (style == .fading && !reduceMotion) ? Self.holdAfterFading : Self.holdAfterWriting
         for (index, screen) in screens.enumerated() {
             let (panel, view) = windows[index]
+            // The black box fades together with the text instead of sitting there empty once the text is gone.
+            view.onFadeOutStart = index == 0 ? { [weak self] in self?.hide(duration: BismillahView.fadeOutTime) } : nil
             view.showsCaption = caption
             panel.setFrame(Self.frame(centeredOn: screen), display: false)
             panel.alphaValue = 0
@@ -86,12 +88,12 @@ final class PopupController {
         DispatchQueue.main.asyncAfter(deadline: .now() + BismillahView.totalDuration + hold, execute: work)
     }
 
-    func hide() {
+    func hide(duration: TimeInterval = PopupController.fade) {
         hideWork?.cancel()
         let visible = windows.map(\.panel).filter(\.isVisible)
         guard !visible.isEmpty else { return }
         NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = Self.fade
+            ctx.duration = duration
             for panel in visible { panel.animator().alphaValue = 0 }
         }, completionHandler: {
             // A newer show() may have started during the fade; only hide the windows that are still faded out.

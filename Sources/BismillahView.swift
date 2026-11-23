@@ -66,6 +66,9 @@ final class BismillahView: NSView {
 
     private var link: CADisplayLink?
     private var startTime: CFTimeInterval = 0
+    /// Called once when the fading style starts to fade out, so the popup behind can fade with it.
+    var onFadeOutStart: (() -> Void)?
+    private var fadeOutNotified = false
     private var fadeVisibleFor: Double?        // set while the fading style is playing
     private var glyphPath: CGPath?
     private var glyphScale: CGFloat = 1
@@ -110,6 +113,7 @@ final class BismillahView: NSView {
         }
         if style == .fading {
             fadeVisibleFor = visibleFor
+            fadeOutNotified = false
             renderFrame(at: Self.totalDuration, finalOnly: true)
             setOpacity(0)
         } else {
@@ -145,6 +149,10 @@ final class BismillahView: NSView {
         if let visibleFor = fadeVisibleFor {
             func smooth(_ u: Double) -> Double { let u = min(max(u, 0), 1); return u * u * (3 - 2 * u) }
             setOpacity(Float(min(smooth(t / Self.fadeInTime), smooth((visibleFor - t) / Self.fadeOutTime))))
+            if !fadeOutNotified, visibleFor - t <= Self.fadeOutTime {
+                fadeOutNotified = true
+                onFadeOutStart?()
+            }
             if t >= visibleFor {
                 link.invalidate()
                 self.link = nil

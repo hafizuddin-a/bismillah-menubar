@@ -375,7 +375,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var lastURLAction = Date.distantPast
 
-    /// bismillah://show, bismillah://dhikr, bismillah://counter, bismillah://count (adds one to the counter)
+    /// bismillah://show, bismillah://dhikr, bismillah://counter, bismillah://count (adds one to the counter; bismillah://count?n=33 adds 33)
     func application(_ application: NSApplication, open urls: [URL]) {
         // A web page can open these links too, so don't let any one burst of them pile up popups or inflate the count.
         guard Date().timeIntervalSince(lastURLAction) > 1 else { return }
@@ -385,7 +385,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "show": showBismillah()
             case "dhikr": notchPopup.show(allScreens: showOnAllScreens, showReading: showTransliteration)
             case "counter": if !tasbih.isShowing { openTasbihCounter() }
-            case "count": tasbih.increment()
+            case "count":
+                let n = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?
+                    .first { $0.name == "n" }?.value.flatMap { Int($0) } ?? 1
+                if n > 1 { tasbih.add(n) } else { tasbih.increment() }
             default: break
             }
         }
