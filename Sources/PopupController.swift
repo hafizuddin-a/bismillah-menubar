@@ -38,6 +38,8 @@ private final class PopupContentView: NSView {
 final class PopupController {
     static let size = NSSize(width: 520, height: 180)
     private static let holdAfterWriting = 2.0
+    /// The fading style is gone a little sooner than the writing style's hold (its fade-out is also quicker).
+    private static let holdAfterFading = 1.7
     private static let fade = 0.35
 
     /// One window per screen it has been shown on; they are reused between showings.
@@ -54,6 +56,8 @@ final class PopupController {
         while windows.count < screens.count { windows.append(makeWindow()) }
         for window in windows[screens.count...] { window.panel.orderOut(nil) }
 
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let hold = (style == .fading && !reduceMotion) ? Self.holdAfterFading : Self.holdAfterWriting
         for (index, screen) in screens.enumerated() {
             let (panel, view) = windows[index]
             view.showsCaption = caption
@@ -67,11 +71,11 @@ final class PopupController {
                 panel.animator().alphaValue = 1
             }
             let delay = Self.fade * 0.6
-            if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            if reduceMotion {
                 view.showFinished()
             } else if style == .fading {
-                // on screen as long as the writing style is: fade in, pause, fade out, then the panel itself fades
-                view.play(style: .fading, after: delay, visibleFor: BismillahView.totalDuration + Self.holdAfterWriting - delay)
+                // fade in, pause, fade out, then the panel itself fades
+                view.play(style: .fading, after: delay, visibleFor: BismillahView.totalDuration + hold - delay)
             } else {
                 view.play(after: delay)
             }
@@ -79,7 +83,7 @@ final class PopupController {
 
         let work = DispatchWorkItem { [weak self] in self?.hide() }
         hideWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + BismillahView.totalDuration + Self.holdAfterWriting, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + BismillahView.totalDuration + hold, execute: work)
     }
 
     func hide() {

@@ -47,8 +47,10 @@ final class BismillahView: NSView {
     enum Style: String {
         case writing, fading
     }
-    /// The fading style fades in and out this quickly; the time between is a pause on the finished text.
-    static let fadeTime = 0.6
+    /// The fading style fades in over `fadeInTime` and out over `fadeOutTime` (a little quicker, so it doesn't
+    /// linger); the time between is a pause on the finished text.
+    static let fadeInTime = 0.6
+    static let fadeOutTime = 0.4
 
     /// The line under the text for people who can't read Arabic yet.
     static let captionText = "Bismillahir Rahmanir Rahim"
@@ -142,7 +144,7 @@ final class BismillahView: NSView {
         let t = CACurrentMediaTime() - startTime
         if let visibleFor = fadeVisibleFor {
             func smooth(_ u: Double) -> Double { let u = min(max(u, 0), 1); return u * u * (3 - 2 * u) }
-            setOpacity(Float(min(smooth(t / Self.fadeTime), smooth((visibleFor - t) / Self.fadeTime))))
+            setOpacity(Float(min(smooth(t / Self.fadeInTime), smooth((visibleFor - t) / Self.fadeOutTime))))
             if t >= visibleFor {
                 link.invalidate()
                 self.link = nil
