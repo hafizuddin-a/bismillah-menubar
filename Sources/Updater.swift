@@ -105,7 +105,7 @@ final class Updater {
 
     /// "Check for Updates…" in the menu: always asks GitHub and tells you what it found.
     func checkManually() {
-        guard !working else { return }
+        guard !working else { AlertPresenter.bringToFront(); return }       // a question from the last check may still be open
         Task { await runManual() }
     }
 
@@ -117,7 +117,7 @@ final class Updater {
             found = try await latestRelease()
             UserDefaults.standard.set(Date(), forKey: Self.lastCheckKey)
             guard let release = found else {
-                showAlert("Bismillah is up to date", "You have the latest version (\(currentVersion)).")
+                await showAlert("Bismillah is up to date", "You have the latest version (\(currentVersion)).")
                 return
             }
             let alert = NSAlert()
@@ -125,8 +125,7 @@ final class Updater {
             alert.informativeText = "You have \(currentVersion). Bismillah will restart to finish updating."
             alert.addButton(withTitle: "Install and Restart")
             alert.addButton(withTitle: "Later")
-            NSApp.activate(ignoringOtherApps: true)
-            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            guard await AlertPresenter.present(alert) == .alertFirstButtonReturn else { return }
             try await install(release, waitForQuietMoment: false)
         } catch UpdateError.cannotReplace(let why) {
             let alert = NSAlert()
@@ -134,19 +133,17 @@ final class Updater {
             alert.informativeText = why
             alert.addButton(withTitle: "Open Release Page")
             alert.addButton(withTitle: "OK")
-            NSApp.activate(ignoringOtherApps: true)
-            if alert.runModal() == .alertFirstButtonReturn, let page = found?.page { NSWorkspace.shared.open(page) }
+            if await AlertPresenter.present(alert) == .alertFirstButtonReturn, let page = found?.page { NSWorkspace.shared.open(page) }
         } catch {
-            showAlert("Couldn't update Bismillah", error.localizedDescription)
+            await showAlert("Couldn't update Bismillah", error.localizedDescription)
         }
     }
 
-    private func showAlert(_ title: String, _ detail: String) {
+    private func showAlert(_ title: String, _ detail: String) async {
         let alert = NSAlert()
         alert.messageText = title
         alert.informativeText = detail
-        NSApp.activate(ignoringOtherApps: true)
-        alert.runModal()
+        _ = await AlertPresenter.present(alert)
     }
 
     // MARK: - finding a newer release

@@ -302,8 +302,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if skipDhikrWhileSharing && !ScreenSharing.hasPermission { askForScreenRecording() }       // turning it on: explain what it needs
     }
 
+    private var askingForScreenRecording = false
+
     /// Explains the Screen Recording permission before macOS asks for it. Optional: "Not Now" keeps the basic detection.
+    /// It is an ordinary window, not a modal one, so leaving it unanswered never holds up reminders or update checks.
     private func askForScreenRecording(afterUpdate: Bool = false) {
+        guard !askingForScreenRecording else { AlertPresenter.bringToFront(); return }
+        askingForScreenRecording = true
         let alert = NSAlert()
         alert.messageText = afterUpdate ? "Allow Screen Recording again?" : "Skip reminders while you share your screen?"
         alert.informativeText = (afterUpdate ? "The update reset this permission, which can happen when Bismillah updates.\n\n" : "") + """
@@ -318,14 +323,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             """
         alert.addButton(withTitle: "Continue")
         alert.addButton(withTitle: "Not Now")
-        NSApp.activate()
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let asked = UserDefaults.standard.bool(forKey: "ScreenRecordingPromptShown")
-        UserDefaults.standard.set(true, forKey: "ScreenRecordingPromptShown")
-        if !asked {
-            ScreenSharing.requestPermission()                 // macOS's own prompt
-        } else {
-            NSWorkspace.shared.open(ScreenSharing.settingsURL)   // macOS only asks once; after that it is a switch in Settings
+        Task { @MainActor [weak self] in
+            let answer = await AlertPresenter.present(alert)
+            self?.askingForScreenRecording = false
+            guard answer == .alertFirstButtonReturn else { return }
+            let asked = UserDefaults.standard.bool(forKey: "ScreenRecordingPromptShown")
+            UserDefaults.standard.set(true, forKey: "ScreenRecordingPromptShown")
+            if !asked {
+                ScreenSharing.requestPermission()                 // macOS's own prompt
+            } else {
+                NSWorkspace.shared.open(ScreenSharing.settingsURL)   // macOS only asks once; after that it is a switch in Settings
+            }
         }
     }
 
@@ -402,7 +410,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let alert = NSAlert()
             alert.messageText = "Couldn't change Launch at Login"
             alert.informativeText = "\(error.localizedDescription)\n\nTry moving Bismillah.app to /Applications first."
-            alert.runModal()
+            Task { @MainActor in _ = await AlertPresenter.present(alert) }
         }
     }
 }
