@@ -141,7 +141,7 @@ does, with *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* and a ri
 - **Hadith** opens the hadith about saying *Subhan Allah wa bihamdihi* a hundred times a day (Sahih al-Bukhari 6405,
   on sunnah.com) in your browser. Bismillah itself still makes no network request.
 - Tick **Show saved count in menu bar** to see your number next to **بسم الله**.
-- At 100 the ring turns green and a **Reset** button appears. You can also just keep counting past 100.
+- At 100 the ring turns green and the round is complete. Keep counting and the next round starts from 1, with the rounds you've finished shown beside the hint; nothing is lost. To start over, hover the ring and click the reset icon: it always goes back to 0 and clears the rounds.
 
 ## Dhikr reminders
 
@@ -199,7 +199,7 @@ Bismillah also answers `bismillah://` links, so Shortcuts, scripts or other apps
 | `bismillah://dhikr` | Shows a dhikr popup |
 | `bismillah://counter` | Opens the tasbih counter |
 | `bismillah://count` | Adds one to the counter |
-| `bismillah://count?n=33` | Adds 33 (any number from 1 to 100) |
+| `bismillah://count?n=33` | Adds 33 (any number from 1 to 100; going past 100 starts the next round) |
 
 **In the Shortcuts app:** add an **Open URLs** action, type one of the links above, and name the shortcut, e.g.
 "Count 33 after prayer". From there you can run it from Spotlight, the menu bar, Siri ("Hey Siri, Count 33 after

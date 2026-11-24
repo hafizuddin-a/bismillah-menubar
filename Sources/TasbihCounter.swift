@@ -24,16 +24,22 @@ final class TasbihCounter {
     private let contentStack = NSStackView()
     private let spaceKey = KeyCapView(title: "Space")
     private let hintLabel = TasbihCounter.label("", font: .systemFont(ofSize: 11), color: .secondaryLabelColor)
-    private let resetButton = NSButton(title: "Reset", target: nil, action: nil)
     private let hoverArea = ResetHoverArea()           // over the ring: hover shows a reset icon, click resets
     private let resetIcon = NSImageView()
     private var hovering = false
     private let closeButton = NSButton(title: "", target: nil, action: nil)
 
-    private(set) var count: Int {
+    /// Everything counted since the last reset. Stored as one number, so counts saved by older versions carry over.
+    private var total: Int {
         get { max(0, UserDefaults.standard.integer(forKey: Self.countKey)) }
         set { UserDefaults.standard.set(max(0, newValue), forKey: Self.countKey) }
     }
+
+    /// The number on the ring, 0 to `goal`. Counting on past the goal starts the next round (101 shows 1; exactly 100 shows 100).
+    var count: Int { total == 0 ? 0 : (total - 1) % Self.goal + 1 }
+
+    /// Rounds of `goal` finished so far.
+    var rounds: Int { total / Self.goal }
 
     var isShowing: Bool { panel?.isVisible ?? false }
 
@@ -123,22 +129,23 @@ final class TasbihCounter {
     }
 
     func increment() {
-        count += 1
+        total += 1
         refresh(animated: true)
-        pulse(strongly: count == Self.goal)
+        pulse(strongly: total % Self.goal == 0)
         onChange?()
     }
 
     /// Adds `n` at once (1 to 100), e.g. from a Shortcut.
     func add(_ n: Int) {
-        count += min(max(n, 1), Self.goal)
+        let before = rounds
+        total += min(max(n, 1), Self.goal)
         refresh(animated: true)
-        pulse(strongly: count >= Self.goal)
+        pulse(strongly: rounds > before || total % Self.goal == 0)
         onChange?()
     }
 
     func reset() {
-        count = 0
+        total = 0
         hovering = false
         refresh(animated: true)
         onChange?()
@@ -184,11 +191,6 @@ final class TasbihCounter {
         let content = NSView(frame: NSRect(x: 0, y: 0, width: Self.width, height: 100))
         content.translatesAutoresizingMaskIntoConstraints = false
 
-        resetButton.target = self
-        resetButton.action = #selector(resetPressed)
-        resetButton.bezelStyle = .rounded
-        resetButton.controlSize = .small
-        resetButton.refusesFirstResponder = true         // so Space always counts, never presses a button
         closeButton.target = self
         closeButton.action = #selector(closePressed)
         closeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Close")
@@ -233,9 +235,10 @@ final class TasbihCounter {
         hoverArea.onHover = { [weak self] inside in self?.hovering = inside; self?.applyHover() }
         hoverArea.onClick = { [weak self] in self?.reset() }
         hoverArea.setAccessibilityLabel("Reset count to 0")
+        hoverArea.toolTip = "Reset to 0 (clears rounds)"
 
         // the rows, top to bottom: the dhikr, its reading, "Space to count" (and Reset), then Hadith and the menu bar option
-        let hintRow = NSStackView(views: [spaceKey, hintLabel, resetButton])
+        let hintRow = NSStackView(views: [spaceKey, hintLabel])
         hintRow.orientation = .horizontal
         hintRow.spacing = 5
         hintRow.alignment = .centerY
@@ -304,7 +307,6 @@ final class TasbihCounter {
         return panel
     }
 
-    @objc private func resetPressed() { reset() }
     @objc private func closePressed() { close() }
     @objc private func openHadith() { NSWorkspace.shared.open(Self.hadithURL) }
     @objc private func menuBarTogglePressed() {
@@ -316,11 +318,11 @@ final class TasbihCounter {
 
     private func refresh(animated: Bool) {
         let n = count
-        let done = n >= Self.goal
+        let done = total > 0 && total % Self.goal == 0          // the ring is full right now
         countLabel.stringValue = "\(n)"
         countLabel.font = .monospacedDigitSystemFont(ofSize: n < 1000 ? 17 : (n < 10000 ? 13 : 10), weight: .semibold)     // keeps big numbers inside the ring
-        hintLabel.stringValue = done ? "to continue" : "to count · goal \(Self.goal)"
-        resetButton.isHidden = !done
+        hintLabel.stringValue = (done ? "to continue" : "to count · goal \(Self.goal)")
+            + (rounds > 0 ? " · \(rounds) round\(rounds == 1 ? "" : "s")" : "")
         hoverArea.isEnabled = n > 0
         applyHover()
         ringView.setProgress(CGFloat(min(n, Self.goal)) / CGFloat(Self.goal), complete: done,
@@ -331,7 +333,7 @@ final class TasbihCounter {
 
     /// While the pointer is over the ring (and there is something to reset), the number gives way to a reset icon.
     private func applyHover() {
-        let showReset = hovering && count > 0
+        let showReset = hovering && total > 0
         countLabel.isHidden = showReset
         resetIcon.isHidden = !showReset
     }
