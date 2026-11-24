@@ -137,11 +137,11 @@ does, with *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* and a ri
 - It stays open until you close it, so you can leave it up while you work. Press **Esc**, click the ✕, or choose
   **Tasbih Counter** again to close it.
 - The number is remembered, between openings and when you quit and reopen the app.
-- Rest the pointer on the number and it turns into a reset icon. Click it to start again from 0.
+- Rest the pointer on the number and it turns into a reset icon. Click it to clear the current round.
 - **Hadith** opens the hadith about saying *Subhan Allah wa bihamdihi* a hundred times a day (Sahih al-Bukhari 6405,
   on sunnah.com) in your browser. Bismillah itself still makes no network request.
 - Tick **Show saved count in menu bar** to see your number next to **بسم الله**.
-- At 100 the ring turns green and the round is complete. Keep counting and the next round starts from 1, with the rounds you've finished shown beside the hint; nothing is lost. To start over, hover the ring and click the reset icon: it always goes back to 0 and clears the rounds.
+- At 100 the ring turns green and the round is complete. Keep counting and the next round starts from 1, with the rounds you've finished shown beside the hint; nothing is lost. To start over, hover the ring and click the reset icon: it clears only the round you're on (the hint says so straight away), and rounds you've already finished stay.
 
 ## Dhikr reminders
 

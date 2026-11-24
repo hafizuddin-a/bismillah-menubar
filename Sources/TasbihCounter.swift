@@ -27,6 +27,7 @@ final class TasbihCounter {
     private let hoverArea = ResetHoverArea()           // over the ring: hover shows a reset icon, click resets
     private let resetIcon = NSImageView()
     private var hovering = false
+    private var hintText = ""
     private let closeButton = NSButton(title: "", target: nil, action: nil)
 
     /// Everything counted since the last reset. Stored as one number, so counts saved by older versions carry over.
@@ -144,8 +145,9 @@ final class TasbihCounter {
         onChange?()
     }
 
+    /// Clears the round on the ring: 15 of round 3 goes back to 0 of round 3, and rounds already finished stay.
     func reset() {
-        total = 0
+        total = total > 0 ? (total - 1) / Self.goal * Self.goal : 0
         hovering = false
         refresh(animated: true)
         onChange?()
@@ -234,8 +236,8 @@ final class TasbihCounter {
         hoverArea.translatesAutoresizingMaskIntoConstraints = false
         hoverArea.onHover = { [weak self] inside in self?.hovering = inside; self?.applyHover() }
         hoverArea.onClick = { [weak self] in self?.reset() }
-        hoverArea.setAccessibilityLabel("Reset count to 0")
-        hoverArea.toolTip = "Reset to 0 (clears rounds)"
+        hoverArea.setAccessibilityLabel("Clear this round (finished rounds stay)")
+        hoverArea.toolTip = "Clears this round only"
 
         // the rows, top to bottom: the dhikr, its reading, "Space to count" (and Reset), then Hadith and the menu bar option
         let hintRow = NSStackView(views: [spaceKey, hintLabel])
@@ -321,8 +323,9 @@ final class TasbihCounter {
         let done = total > 0 && total % Self.goal == 0          // the ring is full right now
         countLabel.stringValue = "\(n)"
         countLabel.font = .monospacedDigitSystemFont(ofSize: n < 1000 ? 17 : (n < 10000 ? 13 : 10), weight: .semibold)     // keeps big numbers inside the ring
-        hintLabel.stringValue = (done ? "to continue" : "to count · goal \(Self.goal)")
+        hintText = (done ? "to continue" : "to count · goal \(Self.goal)")
             + (rounds > 0 ? " · \(rounds) round\(rounds == 1 ? "" : "s")" : "")
+        hintLabel.stringValue = hintText
         hoverArea.isEnabled = n > 0
         applyHover()
         ringView.setProgress(CGFloat(min(n, Self.goal)) / CGFloat(Self.goal), complete: done,
@@ -336,6 +339,7 @@ final class TasbihCounter {
         let showReset = hovering && total > 0
         countLabel.isHidden = showReset
         resetIcon.isHidden = !showReset
+        hintLabel.stringValue = showReset ? "Clears this round only" : hintText     // instant, unlike a tooltip
     }
 
     /// A small bump of the number on every count, a bigger one on reaching the goal.
