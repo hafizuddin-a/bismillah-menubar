@@ -29,7 +29,7 @@ Bismillah is a small menu bar app for Mac. It shows a black popup in the middle 
 - A **tasbih counter** in the menu bar: press Space to count *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* up to 100. It remembers your number, and links to the hadith about saying it 100 times.
 - An optional **transliteration** under every popup, for anyone still learning to read Arabic.
 - **Global shortcuts** and `bismillah://` links, to show the bismillah or open the counter from anywhere.
-- A menu bar item that reads **بسم الله**, with Show Bismillah, Animation Mode, Dhikr Reminders, Tasbih Counter, Launch at Login,
+- A menu bar item that reads **بسم الله**, with Show Bismillah, Animation Mode, Dhikr Reminders, Tasbih Counter, Tasbih Break Reminder, Launch at Login,
   Show on All Screens, the update options and Quit. No Dock icon.
 - No account, and it only remembers its own settings. Its only network access is the update check (see [Updates](#updates)).
 
@@ -97,6 +97,7 @@ Click **بسم الله** in the menu bar:
 | Show Bismillah  | Shows it again |
 | Dhikr Reminders | Choose how many random dhikr popups a day (off by default) and the hours they appear in, skip them while you share your screen, see when the next one is, or show one now |
 | Tasbih Counter  | Opens a small counter under the menu bar: press Space to count up to 100 |
+| Tasbih Break Reminder | Asks whether to remind you to do tasbih after an hour of activity (off by default) |
 | Animation Mode  | **Fading** (the default) fades the bismillah in and out; **Writing** writes it out like handwriting |
 | Show Transliteration | Adds the reading in Latin letters under every popup and the counter (off by default) |
 | Show on All Screens | Shows the bismillah and the dhikr popups on every screen at once instead of just one (off by default) |
@@ -142,6 +143,21 @@ does, with *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* and a ri
   on sunnah.com) in your browser. Bismillah itself still makes no network request.
 - Tick **Show saved count in menu bar** to see your number next to **بسم الله**.
 - At 100 the ring turns green and the round is complete. Keep counting and the next round starts from 1, with the rounds you've finished shown beside the hint; nothing is lost. To start over, hover the ring and click the reset icon: it clears only the round you're on (the hint says so straight away), and rounds you've already finished stay.
+
+## Tasbih break reminder
+
+Choose **Tasbih Break Reminder** in the menu and answer **Yes, Remind Me** (it is off until you do; choose it again
+and answer **No** to turn it off). After an hour at your Mac, "SubhanAllah, an hour has passed. Take a moment for tasbih." slides out of the
+notch with an **Open Tasbih Counter** button, stays about 15 seconds, and leaves by itself.
+
+- The hour is keyboard or mouse activity. Five minutes without any, a locked screen or sleep counts as a break and
+  starts it again. Only the time since your last input is read, never what you typed, so no permission is needed.
+  Watching a long video without touching anything counts as being away.
+- It stays at least 10 minutes away from a dhikr popup. A dhikr held back for it is planned again later, so your
+  number for the day stays the same.
+- If five reminders in a row go by without the counter being opened, the next one reads "Take a moment for tasbih,
+  before The Hour." Opening the counter any way starts that count again.
+- It waits while you are sharing your screen (with **Skip While Screen Sharing** on) or have the counter open.
 
 ## Dhikr reminders
 

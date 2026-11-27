@@ -52,10 +52,24 @@ final class NotchPopupView: NSView {
     static let textAreaHeight: CGFloat = 70
     static let margin: CGFloat = 40                // room around the shape for its shadow
     static let readingExtra: CGFloat = 10          // taller by this much when the transliteration is shown
+    static let reminderHeight: CGFloat = 104       // the text area of the tasbih break reminder
+    static let reminderTitle = "SubhanAllah, an hour has passed"
+    static let reminderText = "Take a moment for tasbih."
+    static let reminderTextTheHour = "Take a moment for tasbih, before The Hour."     // after several ignored ones
 
-    static func size(for geometry: NotchGeometry, showReading: Bool = false) -> NSSize {
-        NSSize(width: openWidth + 2 * margin,
-               height: geometry.topInset + textAreaHeight + (showReading ? readingExtra : 0) + margin)
+    /// A button that works on the first click although the popup never takes keyboard focus.
+    private final class PillButton: NSButton {
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+        override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
+    }
+    private var reminderViews: [NSView] = []
+
+    /// Called by the reminder's Open Tasbih Counter button.
+    var onOpenCounter: (() -> Void)?
+
+    static func size(for geometry: NotchGeometry, showReading: Bool = false, reminder: Bool = false) -> NSSize {
+        let area = reminder ? reminderHeight : textAreaHeight + (showReading ? readingExtra : 0)
+        return NSSize(width: openWidth + 2 * margin, height: geometry.topInset + area + margin)
     }
 
     private let geometry: NotchGeometry
@@ -68,10 +82,11 @@ final class NotchPopupView: NSView {
     /// Called when the black shape is clicked.
     var onClick: (() -> Void)?
 
-    init(geometry: NotchGeometry, phrase: Dhikr = NotchPopupView.phrases[0], showReading: Bool = false) {
+    init(geometry: NotchGeometry, phrase: Dhikr = NotchPopupView.phrases[0], showReading: Bool = false,
+         reminder: Bool = false, theHour: Bool = false) {
         self.geometry = geometry
-        textArea = Self.textAreaHeight + (showReading ? Self.readingExtra : 0)
-        super.init(frame: NSRect(origin: .zero, size: Self.size(for: geometry, showReading: showReading)))
+        textArea = reminder ? Self.reminderHeight : Self.textAreaHeight + (showReading ? Self.readingExtra : 0)
+        super.init(frame: NSRect(origin: .zero, size: Self.size(for: geometry, showReading: showReading, reminder: reminder)))
         wantsLayer = true
         layer = CALayer()
         layerContentsRedrawPolicy = .never
@@ -82,6 +97,11 @@ final class NotchPopupView: NSView {
         shape.shadowOffset = CGSize(width: 0, height: -6)
         shape.frame = bounds
         layer?.addSublayer(shape)
+        if reminder {
+            addReminder(text: theHour ? Self.reminderTextTheHour : Self.reminderText)
+            apply(progress: 0)
+            return
+        }
 
         let style = NSMutableParagraphStyle()
         style.alignment = .center
@@ -120,12 +140,42 @@ final class NotchPopupView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
+    private func addReminder(text: String) {
+        func line(_ text: String, size: CGFloat, weight: NSFont.Weight, white: CGFloat, y: CGFloat) -> NSTextField {
+            let field = NSTextField(labelWithString: text)
+            field.font = .systemFont(ofSize: size, weight: weight)
+            field.textColor = NSColor(white: 1, alpha: white)
+            field.alignment = .center
+            field.frame = NSRect(x: (bounds.width - Self.openWidth) / 2, y: y, width: Self.openWidth, height: size + 6)
+            return field
+        }
+        let bottom = bounds.height - geometry.topInset - textArea
+        let button = PillButton(title: "", target: self, action: #selector(openCounterPressed))
+        button.isBordered = false
+        button.wantsLayer = true
+        button.layer?.backgroundColor = NSColor.white.cgColor
+        button.layer?.cornerRadius = 13
+        button.attributedTitle = NSAttributedString(string: "Open Tasbih Counter", attributes: [
+            .font: NSFont.systemFont(ofSize: 12, weight: .semibold), .foregroundColor: NSColor.black])
+        button.refusesFirstResponder = true
+        button.frame = NSRect(x: (bounds.width - 160) / 2, y: bottom + 14, width: 160, height: 26)
+        reminderViews = [line(Self.reminderTitle, size: 19, weight: .semibold, white: 1, y: bottom + 69),
+                         line(text, size: 12, weight: .regular, white: 0.66, y: bottom + 49),
+                         button]
+        reminderViews.forEach(addSubview)
+    }
+
+    @objc private func openCounterPressed() { onOpenCounter?() }
+
     override var isFlipped: Bool { false }
 
     // Only the black shape takes clicks, so the transparent margin around it never gets in the way.
     override func hitTest(_ point: NSPoint) -> NSView? {
         let local = superview.map { convert(point, from: $0) } ?? point
-        return currentPath?.contains(local) == true ? self : nil
+        guard currentPath?.contains(local) == true else { return nil }
+        if let button = reminderViews.compactMap({ $0 as? NSButton }).first, button.alphaValue > 0.5,
+           button.frame.contains(local) { return button }
+        return self
     }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func mouseDown(with event: NSEvent) { onClick?() }
@@ -158,6 +208,7 @@ final class NotchPopupView: NSView {
         shape.shadowOpacity = Float(0.5 * p)
         label.opacity = Float(min(max((p - 0.55) / 0.35, 0), 1))        // the text arrives once the shape is mostly open
         readingLabel.opacity = label.opacity
+        for view in reminderViews { view.alphaValue = CGFloat(label.opacity) }
         CATransaction.commit()
     }
 }
@@ -166,6 +217,8 @@ final class NotchPopupView: NSView {
 @MainActor
 final class NotchPopupController {
     private nonisolated static let expand = 0.5, hold = 4.0, collapse = 0.4
+    private nonisolated static let reminderHold = 15.0   // long enough to read and click
+    private var holdTime = NotchPopupController.hold
     private static let dismissTime = 0.3               // folding away after a click
 
     private var windows: [(panel: NSPanel, view: NotchPopupView)] = []
@@ -184,7 +237,7 @@ final class NotchPopupController {
     }
 
     /// 0 = closed, 1 = open, `t` seconds into the animation.
-    nonisolated static func progress(at t: Double) -> CGFloat {
+    nonisolated static func progress(at t: Double, hold: Double = 4.0) -> CGFloat {
         if t < expand { return CGFloat(1 - pow(1 - t / expand, 3)) }
         if t < expand + hold { return 1 }
         let u = (t - expand - hold) / collapse
@@ -198,10 +251,31 @@ final class NotchPopupController {
         let index = Self.nextPhrase(after: lastPhrase, count: NotchPopupView.phrases.count)
         lastPhrase = index
         let phrase = NotchPopupView.phrases[index]
+        holdTime = Self.hold
+        present(allScreens: allScreens, label: phrase.reading) { geometry in
+            NotchPopupView(geometry: geometry, phrase: phrase, showReading: showReading)
+        }
+    }
+
+    /// The tasbih break reminder, out of the notch like a dhikr but longer, with a button to open the counter.
+    func showBreakReminder(allScreens: Bool = false, theHour: Bool = false, onOpenCounter: @escaping () -> Void) {
+        guard !isShowing else { return }
+        holdTime = Self.reminderHold
+        present(allScreens: allScreens, label: NotchPopupView.reminderTitle) { [weak self] geometry in
+            let view = NotchPopupView(geometry: geometry, reminder: true, theHour: theHour)
+            view.onOpenCounter = {
+                self?.dismiss()
+                onOpenCounter()
+            }
+            return view
+        }
+    }
+
+    private func present(allScreens: Bool, label: String, make: (NotchGeometry) -> NotchPopupView) {
         let geometries = allScreens && !NSScreen.screens.isEmpty ? NSScreen.screens.map(NotchGeometry.on) : [NotchGeometry.current()]
 
         windows = geometries.map { geometry in
-            let view = NotchPopupView(geometry: geometry, phrase: phrase, showReading: showReading)
+            let view = make(geometry)
             let size = view.frame.size
             let panel = NSPanel(contentRect: NSRect(x: geometry.centerX - size.width / 2,
                                                     y: geometry.screenFrame.maxY - size.height,
@@ -215,7 +289,7 @@ final class NotchPopupController {
             panel.hasShadow = false                         // the shape draws its own
             panel.sharingType = .none                       // asks to be left out of screen shares and recordings
             panel.isReleasedWhenClosed = false              // clicks reach only the shape (see NotchPopupView.hitTest)
-            panel.setAccessibilityLabel(phrase.reading)
+            panel.setAccessibilityLabel(label)
             view.onClick = { [weak self] in self?.dismiss() }
             return (panel, view)
         }
@@ -267,18 +341,18 @@ final class NotchPopupController {
             return
         }
         let t = now - startTime
-        let total = Self.expand + Self.hold + Self.collapse
+        let total = Self.expand + holdTime + Self.collapse
         if reduceMotion {
-            if t > Self.expand + Self.hold, windows.first?.panel.alphaValue == 1 {
+            if t > Self.expand + holdTime, windows.first?.panel.alphaValue == 1 {
                 NSAnimationContext.runAnimationGroup { ctx in
                     ctx.duration = 0.25
                     for window in windows { window.panel.animator().alphaValue = 0 }
                 }
             }
-            if t > Self.expand + Self.hold + 0.3 { finish() }
+            if t > Self.expand + holdTime + 0.3 { finish() }
             return
         }
-        lastProgress = Self.progress(at: t)
+        lastProgress = Self.progress(at: t, hold: holdTime)
         apply(lastProgress)
         if t >= total { finish() }
     }

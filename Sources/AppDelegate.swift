@@ -13,6 +13,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     })
     private lazy var dhikr = DhikrScheduler(available: { [weak self] in self?.dhikrCanShow ?? false },
                                             show: { [weak self] in self?.showDhikrIfPossible() ?? false })
+    private lazy var breakReminder = BreakReminder(
+        away: { AppDelegate.screenIsLocked || CGDisplayIsAsleep(CGMainDisplayID()) != 0 },
+        show: { [weak self] in self?.showBreakReminderIfPossible() ?? false })
+    private let breakPrompt = BreakReminderPrompt()
+    private var lastDhikrShown = Date.distantPast
+    private var breakItem: NSMenuItem!
     private var loginItem: NSMenuItem!
     private var allScreensItem: NSMenuItem!
     private var transliterationItem: NSMenuItem!
@@ -106,6 +112,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let counter = NSMenuItem(title: "Tasbih Counter", action: #selector(openTasbihCounter), keyEquivalent: "")
         counter.target = self
 
+        breakItem = NSMenuItem(title: "Tasbih Break Reminder", action: #selector(askAboutBreakReminder), keyEquivalent: "")
+        breakItem.target = self
+
         loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
         loginItem.target = self
         allScreensItem = NSMenuItem(title: "Show on All Screens", action: #selector(toggleAllScreens), keyEquivalent: "")
@@ -129,6 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // the order of the menu: what you use most first, then how it looks, then the housekeeping
         menu.addItem(dhikrParent)
         menu.addItem(counter)
+        menu.addItem(breakItem)
         menu.addItem(.separator())
         menu.addItem(styleParent)
         menu.addItem(transliterationItem)
@@ -161,6 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         updater.startAutomaticChecks()
         dhikr.start()
+        breakReminder.start()
         tasbih.showsReading = showTransliteration
         tasbih.onChange = { [weak self] in self?.updateStatusTitle() }
         updateStatusTitle()
@@ -187,9 +198,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // the Mac may have slept past an update check
         DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in self?.updater.checkIfDue() }
         dhikr.start()                                // the clock may have jumped while it slept
+        breakReminder.start()                        // sleeping was a break
     }
 
     @objc private func screenWasUnlocked() {
+        breakReminder.start()                        // so was being locked
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.greetIfPossible() }
     }
 
@@ -212,6 +225,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Whether a dhikr popup could appear right now: nothing else on screen, the screen is on and unlocked, and you
     /// aren't sharing it (unless you turned that skip off).
     private var dhikrCanShow: Bool {
+        // never close to a tasbih break reminder: one just shown, or one about to be (one waiting for the counter to be
+        // closed doesn't count, as the counter can stay open all day)
+        if (breakReminder.isDue && !tasbih.isShowing) || Date().timeIntervalSince(breakReminder.lastShown) < breakReminder.gap { return false }
         if popup.isShowing || notchPopup.isShowing || Self.screenIsLocked || CGDisplayIsAsleep(CGMainDisplayID()) != 0 {
             return false
         }
@@ -223,6 +239,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showDhikrIfPossible() -> Bool {
         guard dhikrCanShow else { return false }
         notchPopup.show(allScreens: showOnAllScreens, showReading: showTransliteration)
+        lastDhikrShown = Date()
+        return true
+    }
+
+    // MARK: - tasbih break reminder
+
+    @objc private func askAboutBreakReminder() {
+        tasbih.close()                                       // it hangs from the same spot
+        breakPrompt.show(below: statusItem.button?.window?.frame) { [weak self] yes in
+            self?.breakReminder.isEnabled = yes
+        }
+    }
+
+    /// False when it isn't a good moment (the reminder tries again shortly): something else is on screen, you are
+    /// sharing it, you already have the counter open, or a dhikr appeared not long ago.
+    private func showBreakReminderIfPossible() -> Bool {
+        guard !popup.isShowing, !notchPopup.isShowing, !tasbih.isShowing,
+              Date().timeIntervalSince(lastDhikrShown) >= breakReminder.gap,
+              !(skipDhikrWhileSharing && ScreenSharing.isActive()) else { return false }
+        notchPopup.showBreakReminder(allScreens: showOnAllScreens, theHour: breakReminder.nextMentionsTheHour()) { [weak self] in
+            guard let self, !self.tasbih.isShowing else { return }
+            self.openTasbihCounter()
+        }
         return true
     }
 
@@ -276,6 +315,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openTasbihCounter() {
+        breakReminder.counterOpened()
         tasbih.showsReading = showTransliteration
         tasbih.toggle(below: statusItem.button?.window?.frame)
     }
@@ -426,6 +466,7 @@ extension AppDelegate: NSMenuDelegate {
         transliterationItem.state = showTransliteration ? .on : .off
         shortcutsItem.state = globalShortcutsOn ? .on : .off
         autoUpdateItem.state = updater.automaticEnabled ? .on : .off
+        breakItem.state = breakReminder.isEnabled ? .on : .off
         for item in dhikrCountItems { item.state = item.tag == dhikr.perDay ? .on : .off }
         skipShareItem.state = skipDhikrWhileSharing ? .on : .off
         if ScreenSharing.hasPermission { UserDefaults.standard.set(true, forKey: "ScreenRecordingWasAllowed") }
