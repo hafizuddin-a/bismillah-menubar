@@ -331,7 +331,7 @@ final class TasbihCounter {
         ringView.setProgress(CGFloat(min(n, Self.goal)) / CGFloat(Self.goal), complete: done,
                              animated: animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
         panel?.setAccessibilityValue("\(n)")
-        hintLabel.setAccessibilityLabel("Press Space " + hintLabel.stringValue)
+        hintLabel.setAccessibilityLabel("Press Space " + hintText)          // not the hover text, which may be up
     }
 
     /// While the pointer is over the ring (and there is something to reset), the number gives way to a reset icon.
@@ -507,9 +507,16 @@ final class ResetHoverArea: NSView {
         tracking = area
     }
 
-    override func mouseEntered(with event: NSEvent) { if isEnabled { onHover?(true) } }
-    override func mouseExited(with event: NSEvent) { onHover?(false) }
-    override func mouseDown(with event: NSEvent) { if isEnabled { onClick?() } }
+    override func mouseEntered(with event: NSEvent) { spent = false; if isEnabled { onHover?(true) } }
+    override func mouseExited(with event: NSEvent) { spent = false; onHover?(false) }
+    /// One click per visit: the icon goes away after a reset, so a second click (or a double click) must not clear
+    /// another round unseen. Moving the pointer off and back arms it again.
+    private var spent = false
+    override func mouseDown(with event: NSEvent) {
+        guard isEnabled, !spent else { return }
+        spent = true
+        onClick?()
+    }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func resetCursorRects() { if isEnabled { addCursorRect(bounds, cursor: .pointingHand) } }
     override func accessibilityPerformPress() -> Bool { guard isEnabled else { return false }; onClick?(); return true }

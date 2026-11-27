@@ -238,8 +238,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// again for after you are back, rather than showing it late.
     private func showDhikrIfPossible() -> Bool {
         guard dhikrCanShow else { return false }
-        notchPopup.show(allScreens: showOnAllScreens, showReading: showTransliteration)
-        lastDhikrShown = Date()
+        showDhikr()
         return true
     }
 
@@ -285,7 +284,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return hour == 24 ? "\(text) (end of day)" : text
     }
 
-    @objc private func showDhikrNow() { notchPopup.show(allScreens: showOnAllScreens, showReading: showTransliteration) }
+    @objc private func showDhikrNow() { showDhikr() }
+
+    /// Every dhikr popup goes through here, asked for or scheduled, so the break reminder can keep its distance.
+    private func showDhikr() {
+        guard !notchPopup.isShowing else { return }
+        notchPopup.show(allScreens: showOnAllScreens, showReading: showTransliteration)
+        lastDhikrShown = Date()
+    }
 
     // MARK: - menu actions
 
@@ -423,7 +429,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for url in urls.prefix(1) where url.scheme == "bismillah" {
             switch (url.host ?? url.path).lowercased() {
             case "show": showBismillah()
-            case "dhikr": notchPopup.show(allScreens: showOnAllScreens, showReading: showTransliteration)
+            case "dhikr": showDhikr()
             case "counter": if !tasbih.isShowing { openTasbihCounter() }
             case "count":
                 let n = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?

@@ -142,7 +142,7 @@ does, with *سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ* and a ri
 - **Hadith** opens the hadith about saying *Subhan Allah wa bihamdihi* a hundred times a day (Sahih al-Bukhari 6405,
   on sunnah.com) in your browser. Bismillah itself still makes no network request.
 - Tick **Show saved count in menu bar** to see your number next to **بسم الله**.
-- At 100 the ring turns green and the round is complete. Keep counting and the next round starts from 1, with the rounds you've finished shown beside the hint; nothing is lost. To start over, hover the ring and click the reset icon: it clears only the round you're on (the hint says so straight away), and rounds you've already finished stay.
+- At 100 the ring turns green and the round is complete. Keep counting and the next round starts from 1, with the rounds you've finished shown beside the hint; nothing is lost. To start over, hover the ring and click the reset icon: it clears only the round you're on (the hint says so straight away), and rounds you've already finished stay. To clear another, move the pointer off the ring and back.
 
 ## Tasbih break reminder
 
